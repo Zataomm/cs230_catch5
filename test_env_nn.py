@@ -14,9 +14,9 @@ import time
 from tensorflow.keras import backend as K
 
 
-debug = True # set to False if total_runs is set to more than 1 
+debug = False # set to False if total_runs is set to more than 1 
 num_runs = 0
-total_runs = 1 # set to 100000 to see averages for many runs 
+total_runs = 1 # set to 1000 to see averages for many runs 
 winning_score = 31
 total_time=0
 win_total=[0,0]
@@ -63,24 +63,30 @@ while(num_runs < total_runs):
         action = np.random.choice(n_actions, p=legal_action_dist[0, :])
         action_onehot = np.zeros(n_actions)
         action_onehot[action] = 1           
-
         newtraj=[observation,action,np.squeeze(q_value),0,False]
         trajectories[test_c5.current_player].append(newtraj)
         if debug:
             c5utils.print_action(action)
             print("Step number = ",test_c5.num_plays)
-        observation,reward,done,info = test_c5.step(test_c5.action_map[action])
-        if done: #update last reward and done
-            for i in range(4):
-                trajectories[i][-1][4]=True
-                trajectories[i][-1][3]=test_c5.rewards[i]             
+        observation,reward,done,info = test_c5.step(test_c5.action_map[action])          
         if debug:
-            for i in range(4):
-                c5utils.print_state(test_c5.states[(test_c5.current_player+i)%4],(test_c5.current_player+i)%4)
+            #for i in range(4):
+            #    c5utils.print_state(test_c5.states[(test_c5.current_player+i)%4],(test_c5.current_player+i)%4)
             c5utils.print_tricks(test_c5.trick_info)
             print(test_c5.rewards)
-    if debug:
+    # Now add the rewards,states, and values for terminal states i trajectories
+    for i in range(4):
+        observation = np.copy(test_c5.states[i])
+        state_input = K.eval(K.expand_dims(observation, 0))
+        q_value = model_critic.predict([state_input], steps=1)
+        action_onehot = np.zeros(n_actions)
+        newtraj=[observation,-1,np.squeeze(q_value),test_c5.rewards[i],True]
+        trajectories[i].append(newtraj)
+
+        
+    if True:
         for i in range(4):
+            print("Length of trajectories:",i,len(trajectories[i]))
             for j in range(len(trajectories[i])):
                 c5utils.print_state(trajectories[i][j][0],i)
                 print("Action:",trajectories[i][j][1],"Value:",
