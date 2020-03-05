@@ -66,8 +66,6 @@ class catch5():
         norm = np.sum(new_probs)
         new_probs = new_probs/norm
         return new_probs
-
-
     
     def legal_actions(self,state):
         """ Determine legal actions for the given input state.
@@ -75,11 +73,16 @@ class catch5():
             to determine the progress of the game (bidding, tricks, lead card, etc)
         """
         actions = np.full((1,self.softmax_dim),0)
-        zeros = np.ones((1,8))
+        ones = np.ones((1,8))
         if self.states[self.current_player][0,0]==0:  # still in bidding phase - first 8 are for bidding
-            actions[0,0:8] = zeros[0,0:8]
+            actions[0,0:8] = ones[0,0:8]
+            bid_sum=0
+            for i in range(1,4):
+                bid_sum += self.states[(self.current_player+i)%4][0,0]
+            if bid_sum < 4: # all players passed - then dealer must bid - pass is not allowed
+                actions[0,0]=0
         elif state[0,4] == 0:  #winning bidder is choosing a suit
-            actions[0,8:12] = zeros[0,0:4]
+            actions[0,8:12] = ones[0,0:4]
         else:  # we are playing so actions have to follow the "follow lead suit rule"
             lead_suit = -1 #find lead suit
             for i in range(3):
@@ -93,7 +96,7 @@ class catch5():
             else:  # we have a card from lead suit and we have to follow
                 suit_cards = cards[indx[0]:indx[1]+1]
             for c in suit_cards:
-                actions[0,12+int(c)-1]=zeros[0,0]               
+                actions[0,12+int(c)-1]=ones[0,0]               
         return actions
     
     def update_states(self,action):

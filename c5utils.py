@@ -95,14 +95,19 @@ def numberSuit(cards,suit):
     return numSuited,indxs
 
 def winning_bidder(bids):
-    """ Determine best bid and return player number for this bid
+    """ Determine best bid and return player number for this bid - note: entry [0] is dealers bid.
+        If everyone passes (bids 1), then dealer must take the bid for three. Also - dealer only has 
+        to equal a bid to win it - i.e. if highest bid was 4, dealer only needs to bid 4 to win. 
     """
-    bidder=0
-    best_bid=bids[0]
-    for i in range(1,4):
+    bidder=1
+    best_bid=bids[1]
+    for i in range(2,4):
         if bids[i]>best_bid:
             best_bid = bids[i]
             bidder=i
+    if bids[0] >= best_bid:
+        bidder=0
+        best_bid = bids[0]
     return bidder,best_bid
 
 def evalCards(card0,card1,scoop_suit):
