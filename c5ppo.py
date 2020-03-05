@@ -58,6 +58,38 @@ def get_model_critic(input_dims):
     return model
 
 
+def build_actor_critic_network(input_dims,n_actions):
+    state_input = Input(shape=input_dims)
+    delta = Input(shape=[1])
+    
+    # Classification block
+    dense1 = Dense(512, activation='relu', name='fc1',kernel_initializer='glorot_normal')(state_input)
+    dense2 = Dense(256, activation='relu', name='fc2',kernel_initializer='glorot_normal')(dense1)
+    dense3 = Dense(128, activation='relu', name='fc3',kernel_initializer='glorot_normal')(dense2)    
+    probs = Dense(n_actions, activation='softmax', name='predictions')(dense3)
+    values = Dense(1, activation='tanh')(dense3)
+
+    def custom_loss(y_true,y_pred):
+        out = K.clip(y_pred,1e-8,1-1e8)
+        log_lik = y_true*K.log(out)
+        
+        return K.sum(-log_lik*delta)
+
+    actor = Model(inputs=[state_input,delta],outputs=[probs])
+    actor.compile(optimizer=Adam(lr=1e-4), loss=custom_loss)
+    actor.summary()
+    
+    critic = Model(inputs=[state_input], outputs=[out_actions])
+    critic.compile(optimizer=Adam(lr=1e-4), loss='mse')
+    critic.summary()
+
+    policy = Model(inputs=[state_input],outputs=[probs])
+    
+    
+    return actor,critic,policy
+  
+
+
 def one_hot_encoding(probs):
     one_hot = np.zeros_like(probs)
     one_hot[:, np.argmax(probs, axis=1)] = 1
