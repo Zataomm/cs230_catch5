@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Add
 from tensorflow.keras.models import Model
@@ -7,105 +8,77 @@ from tensorflow.keras import initializers
 from tensorflow.keras import backend as K
 
 n_actions=64
+clipping_val = 0.2
+critic_discount = 0.5
+entropy_beta = 0.001
 gamma = 0.99
 lmbda = 0.95
 
+#turn off warnings and above 
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
+#turn off eager execution 
+tf.compat.v1.disable_eager_execution()
+def convert_state(state):
+    return K.eval(K.expand_dims(state, 0))
 
-def get_advantages(values, masks, rewards):
+def get_advantages(values, rewards):
+    """ We can cheat on calculating the advatages since we have a fixed episode length every time
+    """
     returns = []
+    adv=[]
     gae = 0
+    values = values+[0]
     for i in reversed(range(len(rewards))):
-        delta = rewards[i] + gamma * values[i + 1] * masks[i] - values[i]
-        gae = delta + gamma * lmbda * masks[i] * gae
+        delta = rewards[i] + gamma * values[i + 1] - values[i]
+        gae = delta + gamma * lmbda * gae
         returns.insert(0, gae + values[i])
+    for i in range(len(rewards)):
+        adv.append(returns[i] - values[i])
+    return returns, adv
 
-    adv = np.array(returns) - values[:-1]
-    return returns, (adv - np.mean(adv)) / (np.std(adv) + 1e-10)
+def ppo_loss(oldpolicy_probs, advantages, rewards, values):
+    def loss(y_true, y_pred):
+        newpolicy_probs = K.sum(y_true * y_pred, axis = 1)
+        old_probs = K.sum(y_true * oldpolicy_probs, axis = 1)
+        ratio = K.exp(K.log(newpolicy_probs + 1e-10) - K.log(old_probs + 1e-10))
+        p1 = ratio * advantages
+        p2 = K.clip(ratio, min_value=1 - clipping_val, max_value=1 + clipping_val) * advantages
+        actor_loss = -K.mean(K.minimum(p1, p2))
+        critic_loss = K.mean(K.square(rewards - values))
+        total_loss = critic_discount * critic_loss + actor_loss - entropy_beta * K.mean(
+            -(newpolicy_probs * K.log(newpolicy_probs + 1e-10)))
+        return total_loss
+    return loss
 
 
- 
-def get_model_actor(input_dims, output_dims):
+def build_actor_critic_network(input_dims,output_dims):
     state_input = Input(shape=input_dims)
-    #available_actions = Input(shape=(1,n_actions))
- 
-    # Classification block
-    x = Dense(512, activation='relu', name='fc1',kernel_initializer='glorot_normal')(state_input)
-    x = Dense(256, activation='relu', name='fc2',kernel_initializer='glorot_normal')(x)
-    x = Dense(128, activation='relu', name='fc3',kernel_initializer='glorot_normal')(x)    
-    #x = Dense(n_actions, activation='linear', name='fc3')(x) 
-    #filtered_actions = Add()([x, available_actions])
-    out_actions = Dense(n_actions, activation='softmax', name='predictions')(x)
-
-    model = Model(inputs=[state_input],outputs=[out_actions])
-    model.compile(optimizer=Adam(lr=1e-4), loss='mse')
-    model.summary()
-    return model
-
-
-
-def get_model_critic(input_dims):
-    state_input = Input(shape=input_dims)
-
-    # Classification block
-    x = Dense(512, activation='relu', name='fc1',kernel_initializer='glorot_normal')(state_input)
-    x = Dense(256, activation='relu', name='fc2',kernel_initializer='glorot_normal')(x)
-    x = Dense(128, activation='relu', name='fc3',kernel_initializer='glorot_normal')(x)    
-    out_actions = Dense(1, activation='tanh')(x)
-
-    model = Model(inputs=[state_input], outputs=[out_actions])
-    model.compile(optimizer=Adam(lr=1e-4), loss='mse')
-    model.summary()
-    return model
-
-
-def build_actor_critic_network(input_dims,n_actions):
-    state_input = Input(shape=input_dims)
-    delta = Input(shape=[1])
+    oldpolicy_probs = Input(shape=(1, output_dims,))
+    advantages = Input(shape=(1,1,))
+    rewards = Input(shape=(1,1,))
+    values = Input(shape=(1,1,))
     
     # Classification block
     dense1 = Dense(512, activation='relu', name='fc1',kernel_initializer='glorot_normal')(state_input)
     dense2 = Dense(256, activation='relu', name='fc2',kernel_initializer='glorot_normal')(dense1)
     dense3 = Dense(128, activation='relu', name='fc3',kernel_initializer='glorot_normal')(dense2)    
-    probs = Dense(n_actions, activation='softmax', name='predictions')(dense3)
-    values = Dense(1, activation='tanh')(dense3)
+    pred_probs = Dense(output_dims, activation='softmax', name='actor_predictions')(dense3)
+    
+    pred_value = Dense(1, activation='tanh',name='critic_values')(dense3)
 
-    def custom_loss(y_true,y_pred):
-        out = K.clip(y_pred,1e-8,1-1e8)
-        log_lik = y_true*K.log(out)
-        
-        return K.sum(-log_lik*delta)
-
-    actor = Model(inputs=[state_input,delta],outputs=[probs])
-    actor.compile(optimizer=Adam(lr=1e-4), loss=custom_loss)
+    actor = Model(inputs=[state_input,oldpolicy_probs,advantages,rewards,values],outputs=[pred_probs])
+    actor.compile(optimizer=Adam(lr=1e-4), loss=[ppo_loss(
+        oldpolicy_probs=oldpolicy_probs,
+        advantages=advantages,
+        rewards=rewards,
+        values=values)])
     actor.summary()
     
-    critic = Model(inputs=[state_input], outputs=[out_actions])
+    critic = Model(inputs=[state_input], outputs=[pred_value])
     critic.compile(optimizer=Adam(lr=1e-4), loss='mse')
     critic.summary()
 
-    policy = Model(inputs=[state_input],outputs=[probs])
-    
+    policy = Model(inputs=[state_input],outputs=[pred_probs])
     
     return actor,critic,policy
   
-
-
-def one_hot_encoding(probs):
-    one_hot = np.zeros_like(probs)
-    one_hot[:, np.argmax(probs, axis=1)] = 1
-    return one_hot
-
-
-"""
-state_dims = (1,42)
-n_actions = 64
- 
-model_actor = get_model_actor(input_dims=state_dims, output_dims=n_actions)
-model_critic = get_model_critic(input_dims=state_dims)
-
-state = np.zeros((1,42),dtype='float32')
-state_input = K.eval(K.expand_dims(state, 0))
-q_value = model_critic.predict([state_input], steps=1)
-
-print(q_value)
-"""

@@ -11,7 +11,6 @@ import c5utils
 import c5ppo
 import time
 
-from tensorflow.keras import backend as K
 
 
 debug = False # set to False if total_runs is set to more than 1 
@@ -29,8 +28,7 @@ team_game_avg = [c5utils.RunningAvg(),c5utils.RunningAvg()]
 state_dims = (1,42)
 n_actions = 64
  
-model_actor = c5ppo.get_model_actor(input_dims=state_dims, output_dims=n_actions)
-model_critic = c5ppo.get_model_critic(input_dims=state_dims)
+model_actor,model_critic,policy = c5ppo.build_actor_critic_network(input_dims=state_dims, output_dims=n_actions)
 
 
 tic = time.process_time()
@@ -45,7 +43,7 @@ while(num_runs < total_runs):
     done = False
     while not done:
         observation = np.copy(test_c5.states[test_c5.current_player])
-        state_input = K.eval(K.expand_dims(observation, 0))
+        state_input = c5ppo.convert_state(observation)
         
         if debug:
             c5utils.print_state(observation,test_c5.current_player)
@@ -55,7 +53,7 @@ while(num_runs < total_runs):
             c5utils.print_actions(legal_actions)
         #legal_actions=np.zeros((1,64))
         #legal_actions_input=K.eval(K.expand_dims(legal_actions, 0))
-        action_dist = model_actor.predict([state_input], steps=1)
+        action_dist = policy.predict([state_input], steps=1)
         legal_action_dist=test_c5.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
         #print(legal_action_dist)
         q_value = model_critic.predict([state_input], steps=1)
@@ -77,7 +75,7 @@ while(num_runs < total_runs):
     # Now add the rewards,states, and values for terminal states i trajectories
     for i in range(4):
         observation = np.copy(test_c5.states[i])
-        state_input = K.eval(K.expand_dims(observation, 0))
+        state_input = c5ppo.convert_state(observation)
         q_value = model_critic.predict([state_input], steps=1)
         action_onehot = np.zeros(n_actions)
         newtraj=[observation,-1,np.squeeze(q_value),test_c5.rewards[i],True]
