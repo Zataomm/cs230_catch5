@@ -64,7 +64,11 @@ class catch5():
         """
         new_probs = np.multiply(probs,legal_moves)
         norm = np.sum(new_probs)
-        new_probs = new_probs/norm
+        if (norm>0):
+            new_probs = new_probs/norm
+        else: # choose random legal action
+            num_moves = np.sum(legal_moves)
+            new_probs = legal_moves/num_moves
         return new_probs
     
     def legal_actions(self,state):
@@ -79,7 +83,7 @@ class catch5():
             bid_sum=0
             for i in range(1,4):
                 bid_sum += self.states[(self.current_player+i)%4][0,0]
-            if bid_sum < 4: # all players passed - then dealer must bid - pass is not allowed
+            if bid_sum ==3: # all players passed - then dealer must bid - pass is not allowed
                 actions[0,0]=0
         elif state[0,4] == 0:  #winning bidder is choosing a suit
             actions[0,8:12] = ones[0,0:4]

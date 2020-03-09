@@ -231,7 +231,7 @@ def dealPostBid(players,deck,scoop_suit):
     return new_hands  
 
 def random_action(actions):
-    legal_acts = np.argwhere(actions==0)
+    legal_acts = np.argwhere(actions==1)
     assert(legal_acts.shape[0]>0)
     rand_action=np.random.randint(legal_acts.shape[0])
     return legal_acts[rand_action][1]
@@ -311,8 +311,30 @@ def print_tricks(trick_info):
         for c in trick[1]:
             trk_str+=ppCards[int(c)-1]+" "
         print("Player:",trick[0],"trick:",trk_str)
+
         
-    
+
+def test_loss(oldpolicy_probs, advantages, rewards, values, y_true, y_pred):
+    """ Function to try and understand what PPO loss function should be doing
+    sub K.'s with np.'s and print results to get a handle on what is going on ....
+    # oldpolicy is normalized probs, 
+    y_true is one_hot, 
+    y_pred is new probs from model
+    """
+    clipping_val = 0.2
+    critic_discount = 0.5
+    entropy_beta = 0.001
+
+    newpolicy_probs = np.sum(y_true * y_pred, axis = 1)
+    old_probs = np.sum(y_true * oldpolicy_probs, axis = 1)
     
 
+    ratio = np.exp(np.log(newpolicy_probs + 1e-10) - np.log(old_probs + 1e-10))
+    p1 = ratio * advantages
+    p2 = np.clip(ratio, 1 - clipping_val, 1 + clipping_val) * advantages
+    actor_loss = -np.mean(np.minimum(p1, p2))
+    critic_loss = np.mean(np.square(rewards - values))
+    total_loss = critic_discount * critic_loss + actor_loss - entropy_beta * np.mean(
+        -(newpolicy_probs * np.log(newpolicy_probs + 1e-10)))
 
+    return total_loss

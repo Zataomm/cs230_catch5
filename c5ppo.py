@@ -6,6 +6,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import initializers
 from tensorflow.keras import backend as K
+import sys
 
 n_actions=64
 clipping_val = 0.2
@@ -18,6 +19,8 @@ lmbda = 0.95
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
 #turn off eager execution 
 tf.compat.v1.disable_eager_execution()
+
+
 def convert_state(state):
     return K.eval(K.expand_dims(state, 0))
 
@@ -36,10 +39,16 @@ def get_advantages(values, rewards):
         adv.append(returns[i] - values[i])
     return returns, adv
 
+
 def ppo_loss(oldpolicy_probs, advantages, rewards, values):
     def loss(y_true, y_pred):
+        print("========================================================= in loss ==================")
         newpolicy_probs = K.sum(y_true * y_pred, axis = 1)
+        #newpolicy_probs = tf.compat.v1.Print(newpolicy_probs, [newpolicy_probs], 'new policy probs: ')
+
         old_probs = K.sum(y_true * oldpolicy_probs, axis = 1)
+        #old_probs = tf.compat.v1.Print(old_probs, [old_probs], 'old policy probs: ')
+   
         ratio = K.exp(K.log(newpolicy_probs + 1e-10) - K.log(old_probs + 1e-10))
         p1 = ratio * advantages
         p2 = K.clip(ratio, min_value=1 - clipping_val, max_value=1 + clipping_val) * advantages
@@ -57,11 +66,11 @@ def build_actor_critic_network(input_dims,output_dims):
     advantages = Input(shape=(1,1,))
     rewards = Input(shape=(1,1,))
     values = Input(shape=(1,1,))
-    
+
     # Classification block
     dense1 = Dense(256, activation='relu', name='fc1',kernel_initializer='glorot_normal')(state_input)
-    #dense2 = Dense(256, activation='relu', name='fc2',kernel_initializer='glorot_normal')(dense1)
-    dense3 = Dense(128, activation='relu', name='fc3',kernel_initializer='glorot_normal')(dense1)    
+    dense2 = Dense(256, activation='relu', name='fc2',kernel_initializer='glorot_normal')(dense1)
+    dense3 = Dense(128, activation='relu', name='fc3',kernel_initializer='glorot_normal')(dense2)    
     pred_probs = Dense(output_dims, activation='softmax', name='actor_predictions')(dense3)
     
     pred_value = Dense(1, activation='tanh',name='critic_values')(dense3)

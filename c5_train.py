@@ -11,6 +11,9 @@ import c5utils
 import c5ppo
 import time
 from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.keras.utils import plot_model
+from tensorflow import keras
+
 
 
 DEBUG = False # set to False if total_episodes is set to more than 1 
@@ -19,12 +22,38 @@ EPOCHS=8
 TOTAL_EPISODES = 10 # set to 1000 to see averages for many runs
 STATE_DIMS = (1,42)
 N_ACTIONS = 64
-TRIALS=100
+ITERATIONS=11
+SAVE_EVERY=10
 
 model_actor,model_critic,policy = c5ppo.build_actor_critic_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
-tensor_board = TensorBoard(log_dir='./logs')
+tensor_board = TensorBoard(log_dir='./logs')#,histogram_freq=1,write_images=True)
 
-for t in range(TRIALS):
+
+
+weights_history=[]
+class MyCallback(keras.callbacks.Callback):
+    def on_batch_end(self, batch, logs):
+        weights = model_actor.get_weights()
+        #print('on_batch_end() model.weights:', weights)
+        weights_history.append(weights)
+
+
+get_weights = MyCallback()
+
+
+
+
+
+#plot_model(model_actor, to_file='model_actor.png')
+#plot_model(model_critic, to_file='model_critic.png')
+
+print("Saving Initial Networks:")
+model_actor.save('models/model_actor_init.hdf5')
+model_critic.save('models/model_critic_init.hdf5')
+policy.save('models/policy_init.hdf5')
+
+
+for itrs in range(ITERATIONS):
 
     episode_num=0
     
@@ -145,20 +174,41 @@ for t in range(TRIALS):
 
     # now we have all of our data - lets train
     batch_prob=np.asarray(batch_prob)
-    print(batch_prob.shape)
     bln=len(batch_advantages)
     batch_advantages=np.asarray(batch_advantages)
     batch_advantages= (batch_advantages-batch_advantages.mean()) / (batch_advantages.std() + 1e-8)
     batch_advantages=np.reshape(batch_advantages,(bln,1,1))
-    batch_advantages= (batch_advantages-batch_advantages.mean()) / (batch_advantages.std() + 1e-8)
     batch_value=np.reshape(batch_value,(len(batch_value),1,1))
 
-    actor_loss = model_actor.fit(
-        [batch_states, batch_prob, batch_advantages, np.reshape(batch_reward, newshape=(-1, 1, 1)), batch_value],
-        [(np.reshape(batch_actions_onehot, newshape=(-1, N_ACTIONS)))],
-        batch_size=BATCH_SIZE,verbose=True, shuffle=True, epochs=EPOCHS,callbacks=[tensor_board])
+    batch_states=np.asarray(batch_states)
+    batch_reward=np.asarray(batch_reward)
+    batch_actions_onehot=np.asarray(batch_actions_onehot)
 
-    critic_loss = model_critic.fit([batch_states], [np.reshape(batch_returns, newshape=(-1, 1))],
-                                   batch_size=BATCH_SIZE,shuffle=True, epochs=EPOCHS,verbose=True, callbacks=[tensor_board])
+    batch_reward =np.reshape(batch_reward, newshape=(-1, 1, 1))
+    batch_actions_onehot=np.reshape(batch_actions_onehot, newshape=(-1,1, N_ACTIONS))
 
+    batch_returns=np.asarray(batch_returns)
+    batch_returns=np.reshape(batch_returns, newshape=(-1, 1,1))
     
+    print("Shapes going into training:")
+    print("\t batch_states:",batch_states.shape)
+    print("\t batch_prob:",batch_prob.shape)
+    print("\t batch_advantages:",batch_advantages.shape)
+    print("\t batch_reward:",batch_reward.shape)  
+    print("\t batch_value:",batch_value.shape)
+    print("\t batch_onehot:",batch_actions_onehot.shape)
+    print("\t batch_returns:",batch_returns.shape)           
+
+    actor_loss = model_actor.fit([batch_states, batch_prob, batch_advantages,batch_reward, batch_value],
+                                 [batch_actions_onehot],batch_size=BATCH_SIZE,verbose=True, shuffle=True,
+                                 epochs=EPOCHS,callbacks=[tensor_board,get_weights])
+    
+    critic_loss = model_critic.fit([batch_states], [batch_returns],batch_size=BATCH_SIZE,shuffle=True,
+                                   epochs=EPOCHS,verbose=True, callbacks=[tensor_board])
+
+    if itrs%SAVE_EVERY == 0:
+        print("Saving network weights at iteration:",itrs)
+        model_actor.save('models/model_actor_{}.hdf5'.format(itrs))
+        model_critic.save('models/model_critic_{}.hdf5'.format(itrs))
+        policy.save('models/policy_{}.hdf5'.format(itrs))
+
