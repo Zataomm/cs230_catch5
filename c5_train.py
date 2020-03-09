@@ -11,9 +11,6 @@ import c5utils
 import c5ppo
 import time
 from tensorflow.keras.callbacks import TensorBoard
-from tensorflow.keras.utils import plot_model
-from tensorflow import keras
-
 
 
 DEBUG = False # set to False if total_episodes is set to more than 1 
@@ -26,26 +23,8 @@ ITERATIONS=11
 SAVE_EVERY=10
 
 model_actor,model_critic,policy = c5ppo.build_actor_critic_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
-tensor_board = TensorBoard(log_dir='./logs')#,histogram_freq=1,write_images=True)
+tensor_board = TensorBoard(log_dir='./logs')
 
-
-
-weights_history=[]
-class MyCallback(keras.callbacks.Callback):
-    def on_batch_end(self, batch, logs):
-        weights = model_actor.get_weights()
-        #print('on_batch_end() model.weights:', weights)
-        weights_history.append(weights)
-
-
-get_weights = MyCallback()
-
-
-
-
-
-#plot_model(model_actor, to_file='model_actor.png')
-#plot_model(model_critic, to_file='model_critic.png')
 
 print("Saving Initial Networks:")
 model_actor.save('models/model_actor_init.hdf5')
@@ -73,7 +52,6 @@ for itrs in range(ITERATIONS):
         # trajectories should be list of lists with [S,A,V,R,Done] for
         # the episode in time order ... needed for computing advantages
         trajectories=[[],[],[],[],[]]
-        #for i in range(1):
         done = False
         while not done:
             observation = np.copy(c5env.states[c5env.current_player])
@@ -82,7 +60,6 @@ for itrs in range(ITERATIONS):
             if DEBUG:
                 c5utils.print_state(observation,c5env.current_player)
             legal_actions=c5env.legal_actions(observation)
-            #print(c5env.num_plays)
             if DEBUG:
                 c5utils.print_actions(legal_actions)
             action_dist = policy.predict([state_input], steps=1)
@@ -98,8 +75,6 @@ for itrs in range(ITERATIONS):
                 print("Step number = ",c5env.num_plays)
             observation,reward,done,info = c5env.step(c5env.action_map[action])          
             if DEBUG:
-                #for i in range(4):
-                #    c5utils.print_state(c5env.states[(c5env.current_player+i)%4],(c5env.current_player+i)%4)
                 c5utils.print_tricks(c5env.trick_info)
                 print(c5env.rewards)
         # Now add the rewards,states, and values for terminal states i trajectories
@@ -201,7 +176,7 @@ for itrs in range(ITERATIONS):
 
     actor_loss = model_actor.fit([batch_states, batch_prob, batch_advantages,batch_reward, batch_value],
                                  [batch_actions_onehot],batch_size=BATCH_SIZE,verbose=True, shuffle=True,
-                                 epochs=EPOCHS,callbacks=[tensor_board,get_weights])
+                                 epochs=EPOCHS,callbacks=[tensor_board])
     
     critic_loss = model_critic.fit([batch_states], [batch_returns],batch_size=BATCH_SIZE,shuffle=True,
                                    epochs=EPOCHS,verbose=True, callbacks=[tensor_board])

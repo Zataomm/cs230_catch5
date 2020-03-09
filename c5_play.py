@@ -29,19 +29,30 @@ game_num=0
 team_game_avg = [c5utils.RunningAvg(),c5utils.RunningAvg()]
 num_hands_avg = [c5utils.RunningAvg()]
 
-number_of_bids = [0,0,0,0]
-average_bid = [c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg()]
-average_rewards_per_bid=[c5utils.RunningAvg(),c5utils.RunningAvg(),
+number_of_bids_won = [0,0,0,0]
+average_winning_bid = [c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg()]
+average_rewards_per_winning_bid=[c5utils.RunningAvg(),c5utils.RunningAvg(),
                          c5utils.RunningAvg(),c5utils.RunningAvg()]
 
 #setup policy network to use for playing for players #0 and 2 
 _,_,policy = c5ppo.build_actor_critic_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
 
+
 #load networks from file
 policy = load_model('models/policy_60.hdf5')
 
+
+weights = policy.get_weights()
+print(len(weights))
+for w in weights:
+    print(w.shape,np.mean(w),np.std(w))
+    print("=================================")
+    print(w)
+
+
 #setup environment
 c5env=catch5_env.catch5()
+
 
 while(game_num < TOTAL_GAMES):
 
@@ -68,13 +79,14 @@ while(game_num < TOTAL_GAMES):
                 c5utils.print_actions(legal_actions)
             
             # now get the next move - and update states depending on who is playing
-            if (c5env.current_player%2) == -1:
+            if (c5env.current_player%2) == 0:
                 action_dist = policy.predict([state_input], steps=1)
                 #print("action_dist:",action_dist)
                 #print("legal_actions:",legal_actions)
                 legal_action_dist=c5env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
                 #print("legal_action_dist:",legal_action_dist)
-                action = np.argmax(legal_action_dist[0, :])
+                action = np.random.choice(N_ACTIONS, p=legal_action_dist[0, :])
+                #action = np.argmax(legal_action_dist[0, :])
             else:
                 action=c5utils.random_action(legal_actions)
                 #force bid of only 3 
@@ -90,9 +102,9 @@ while(game_num < TOTAL_GAMES):
 
         num_hands+=1
 
-        number_of_bids[c5env.bidder]+=1
-        average_bid[c5env.bidder].set_avg(c5env.best_bid)
-        average_rewards_per_bid[c5env.bidder].set_avg(c5env.rewards[c5env.bidder])
+        number_of_bids_won[c5env.bidder]+=1
+        average_winning_bid[c5env.bidder].set_avg(c5env.best_bid)
+        average_rewards_per_winning_bid[c5env.bidder].set_avg(c5env.rewards[c5env.bidder])
         if DEBUG:
             c5utils.print_tricks(c5env.trick_info)
             
@@ -124,9 +136,9 @@ while(game_num < TOTAL_GAMES):
     print("Current score: Team 0:",win_total[0],"Team 1:",win_total[1])
 
 for i in range(4):
-    print("Player:",i,"number of bids:",number_of_bids[i])
-    print("Average bid:",average_bid[i].get_avg())
-    print("Avg rewards per bid:",average_rewards_per_bid[i].get_avg())
+    print("Player:",i,"number of winning bids:",number_of_bids_won[i])
+    print("Average winning bid:",average_winning_bid[i].get_avg())
+    print("Avg rewards per winning bid:",average_rewards_per_winning_bid[i].get_avg())
 
 print("Wins for team 0:",win_total[0])
 print("Wins for team 1:",win_total[1])

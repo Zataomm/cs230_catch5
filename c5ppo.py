@@ -69,8 +69,8 @@ def build_actor_critic_network(input_dims,output_dims):
 
     # Classification block
     dense1 = Dense(256, activation='relu', name='fc1',kernel_initializer='glorot_normal')(state_input)
-    dense2 = Dense(256, activation='relu', name='fc2',kernel_initializer='glorot_normal')(dense1)
-    dense3 = Dense(128, activation='relu', name='fc3',kernel_initializer='glorot_normal')(dense2)    
+    #dense2 = Dense(256, activation='relu', name='fc2',kernel_initializer='glorot_normal')(dense1)
+    dense3 = Dense(128, activation='relu', name='fc3',kernel_initializer='glorot_normal')(dense1)    
     pred_probs = Dense(output_dims, activation='softmax', name='actor_predictions')(dense3)
     
     pred_value = Dense(1, activation='tanh',name='critic_values')(dense3)
