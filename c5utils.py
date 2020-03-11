@@ -9,6 +9,7 @@ import numpy as np
 from random import shuffle 
 from bisect import bisect_left,bisect_right
 
+
 char_suits = ['C','D','H','S']
 
 ppCards = ["2C","3C","4C","5C","6C","7C","8C","9C","TC","JC","QC","KC","AC",
@@ -55,6 +56,29 @@ def card2str(cards):
         for i in len(cards):
             cardStr = cardStr + ppCards[i-1] + ","
     return cardStr
+
+def bincards2int(bin_cards):
+    """ expects an array of length 52 and returns a list of integers set in array
+    """
+    cards=[]
+    indxs = np.argwhere(bin_cards>0)
+    for x in indxs:
+        cards.append(x[0])
+    return cards
+
+def intcards2bin(cards):
+    """ takes in a list of cards and returns a numpy array of length 52 with the 
+        proper cards indices set if that cards was present.
+    """
+    bin_cards = np.zeros((1,52))
+    for c in cards:
+        bin_cards[0,c]=1
+    return bin_cards
+
+def get_index(vector):
+    """ expects a vector with only one element set to 1 - the rest zeros."""
+    indxs = np.argwhere(vector>0)
+    return np.squeeze(indxs[0])
 
 def cardValue(card,suit):
     """ return the value of the card if it is a scoring card in catch5
@@ -263,12 +287,15 @@ def print_action(action):
     else:
         print("Play:",ppCards[action_map[action]-1])
 
-def print_state(state,player):
+def print_intstate(state,player):
     print("======== State for player:",player," ==========")
     if state[0,0] > 0:
         print("Bid is:",state[0,0])
     else:
         print("Waiting to bid")
+        for i in range(3):
+            if state[0,i+1] > 0:
+                print("Player",(player+1+i)%4,"bid:",state[0,i+1])
     if state[0,4]>0:
         print("Bid suit is:",char_suits[int(state[0,4])-1])
     trk_str=""
@@ -303,7 +330,41 @@ def print_state(state,player):
         if state[0,i]>0:
             hand+=ppCards[int(state[0,i])-1]+" "      
     print("Player",(player+3)%4," discards:",hand)        
-    
+
+def print_binstate(state,player):
+    print("======== State for player:",player," ==========")
+    if np.sum(state[0,0:8]) > 0:
+        print("Bid is:",action_map[get_index(state[0,0:8])])
+    else:
+        print("Waiting to bid")
+        for i in range(1,4):
+            if np.sum(state[0,8*i:8*(i+1)]) > 0:
+                print("Player",(player+i)%4,"bid:",action_map[get_index(state[0,8*i:8*(i+1)])])
+    if np.sum(state[0,32:36])>0:
+        print("Bid suit is:",char_suits[int(get_index(state[0,32:36]))])
+    trk_str=""
+    for i in range(4):
+        if np.sum(state[0,(36+i*52):(36+(i+1)*52)])==0:
+            trk_str+="X "
+        else:
+            trk_str+=ppCards[int(get_index(state[0,(36+i*52):(36+(i+1)*52)]))]+" "        
+    print("Cards on table:",trk_str)
+    hand=""
+    cards=bincards2int(state[0,(36+4*52):(36+5*52)])
+    for c in cards:
+        hand+=ppCards[c]+" "      
+    print("Cards in hand:",hand)
+    hand=""
+    cards=bincards2int(state[0,(36+5*52):(36+6*52)])
+    for c in cards:
+        hand+=ppCards[c]+" "      
+    print("My discards:",hand)
+    for i in range(3):
+        hand=""
+        cards=bincards2int(state[0,(36+(6+i)*52):(36+(7+i)*52)])
+        for c in cards:
+            hand+=ppCards[c]+" "      
+        print("Player",(player+i+1)%4," discards:",hand)    
     
 def print_tricks(trick_info):    
     for trick in trick_info:
@@ -325,16 +386,35 @@ def test_loss(oldpolicy_probs, advantages, rewards, values, y_true, y_pred):
     critic_discount = 0.5
     entropy_beta = 0.001
 
-    newpolicy_probs = np.sum(y_true * y_pred, axis = 1)
-    old_probs = np.sum(y_true * oldpolicy_probs, axis = 1)
-    
+    #y_true=np.reshape(y_true,(1,1,64))
+
+    newpolicy_probs = np.sum(y_true * y_pred)
+    old_probs = np.sum(y_true * oldpolicy_probs)
 
     ratio = np.exp(np.log(newpolicy_probs + 1e-10) - np.log(old_probs + 1e-10))
     p1 = ratio * advantages
     p2 = np.clip(ratio, 1 - clipping_val, 1 + clipping_val) * advantages
-    actor_loss = -np.mean(np.minimum(p1, p2))
-    critic_loss = np.mean(np.square(rewards - values))
-    total_loss = critic_discount * critic_loss + actor_loss - entropy_beta * np.mean(
-        -(newpolicy_probs * np.log(newpolicy_probs + 1e-10)))
+    actor_loss = -np.minimum(p1, p2)
+    critic_loss = np.square(rewards - values)
+    entropy_loss = -(newpolicy_probs * np.log(newpolicy_probs + 1e-10))
+    total_loss = critic_discount * critic_loss + actor_loss - entropy_beta *entropy_loss
 
     return total_loss
+
+
+"""
+def ppo_loss(oldpolicy_probs, advantages, rewards, values):
+    def loss(y_true, y_pred):
+        newpolicy_probs = K.sum(y_true * y_pred, axis = 1)
+        old_probs = K.sum(y_true * oldpolicy_probs, axis = 1)
+   
+        ratio = K.exp(K.log(newpolicy_probs + 1e-10) - K.log(old_probs + 1e-10))
+        p1 = ratio * advantages
+        p2 = K.clip(ratio, min_value=1 - clipping_val, max_value=1 + clipping_val) * advantages
+        actor_loss = -K.mean(K.minimum(p1, p2))
+        critic_loss = K.mean(K.square(rewards - values))
+        total_loss = critic_discount * critic_loss + actor_loss - entropy_beta * K.mean(
+            -(newpolicy_probs * K.log(newpolicy_probs + 1e-10)))
+        return total_loss
+    return loss
+"""

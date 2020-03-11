@@ -14,7 +14,8 @@ from tensorflow.keras.models import load_model
 
 DEBUG = False # set to False if total_episodes is set to more than 1 
 
-STATE_DIMS = (1,42)
+
+STATE_DIMS = (1,504)
 N_ACTIONS = 64
 
 winning_score = 31
@@ -22,8 +23,10 @@ tic = time.process_time()
 total_time=0
 win_total=[0,0]
 total_hands=0
+hand_win_total=[0,0]
 
-TOTAL_GAMES=10
+
+TOTAL_GAMES=100
 game_num=0
 
 team_game_avg = [c5utils.RunningAvg(),c5utils.RunningAvg()]
@@ -37,17 +40,14 @@ average_rewards_per_winning_bid=[c5utils.RunningAvg(),c5utils.RunningAvg(),
 #setup policy network to use for playing for players #0 and 2 
 _,_,policy = c5ppo.build_actor_critic_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
 
+#load networks from file
+policy = load_model('models/policy_2200.hdf5')
+
+#setup policy network to use for playing for players #0 and 2 
+_,_,policy2 = c5ppo.build_actor_critic_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
 
 #load networks from file
-policy = load_model('models/policy_60.hdf5')
-
-
-weights = policy.get_weights()
-print(len(weights))
-for w in weights:
-    print(w.shape,np.mean(w),np.std(w))
-    print("=================================")
-    print(w)
+policy2 = load_model('models/policy_1000.hdf5')
 
 
 #setup environment
@@ -68,12 +68,12 @@ while(game_num < TOTAL_GAMES):
         done = False
         while not done:
             observation = np.copy(c5env.states[c5env.current_player])
-            state_input = c5ppo.convert_state(observation)
-           
+            int_obs =  np.copy(c5env.int_states[c5env.current_player])
+            state_input = observation[np.newaxis,:]
             if DEBUG:
-                c5utils.print_state(observation,c5env.current_player)
+                c5utils.print_binstate(observation,c5env.current_player)
 
-            legal_actions=c5env.legal_actions(observation)
+            legal_actions=c5env.legal_actions()
 
             if DEBUG:
                 c5utils.print_actions(legal_actions)
@@ -81,18 +81,22 @@ while(game_num < TOTAL_GAMES):
             # now get the next move - and update states depending on who is playing
             if (c5env.current_player%2) == 0:
                 action_dist = policy.predict([state_input], steps=1)
-                #print("action_dist:",action_dist)
-                #print("legal_actions:",legal_actions)
                 legal_action_dist=c5env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
-                #print("legal_action_dist:",legal_action_dist)
-                action = np.random.choice(N_ACTIONS, p=legal_action_dist[0, :])
-                #action = np.argmax(legal_action_dist[0, :])
-            else:
-                action=c5utils.random_action(legal_actions)
+                #action = np.random.choice(N_ACTIONS, p=legal_action_dist[0, :])
+                action = np.argmax(legal_action_dist[0, :])
                 #force bid of only 3 
                 #if action < 8:
                 #    action = 1
-
+            else:
+                #action_dist = policy2.predict([state_input], steps=1)
+                #legal_action_dist=c5env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
+                #action = np.random.choice(N_ACTIONS, p=legal_action_dist[0, :])
+                #action = np.argmax(legal_action_dist[0, :])
+                action=c5utils.random_action(legal_actions)
+                #force bid of only 3
+                if action < 8:
+                    action = 1 
+                
             if DEBUG:
                 c5utils.print_action(action)
                 print("Step number = ",c5env.num_plays)
@@ -100,6 +104,7 @@ while(game_num < TOTAL_GAMES):
             #take a step and return next state 
             observation,reward,done,info = c5env.step(c5env.action_map[action])
 
+        del observation,int_obs
         num_hands+=1
 
         number_of_bids_won[c5env.bidder]+=1
@@ -107,15 +112,22 @@ while(game_num < TOTAL_GAMES):
         average_rewards_per_winning_bid[c5env.bidder].set_avg(c5env.rewards[c5env.bidder])
         if DEBUG:
             c5utils.print_tricks(c5env.trick_info)
-            
-        for i in range(4):
-            print("Rewards for team ",i,":",c5env.rewards[i])
+
+        if DEBUG:
+            for i in range(4):
+                print("Rewards for team ",i,":",c5env.rewards[i])
 
         team_total[0]+=c5env.rewards[0]
         team_total[1]+=c5env.rewards[1]
 
-        print("====================  Scores team[0]:",team_total[0])
-        print("====================  Scores team[1]:",team_total[1])
+        if c5env.rewards[0] > c5env.rewards[1]:
+            hand_win_total[0] += 1
+        else:
+            hand_win_total[1] += 1
+        
+        if DEBUG:
+            print("====================  Scores team[0]:",team_total[0])
+            print("====================  Scores team[1]:",team_total[1])
         
         
         #reset and count hands 
@@ -133,6 +145,7 @@ while(game_num < TOTAL_GAMES):
     
     game_num+=1
 
+
     print("Current score: Team 0:",win_total[0],"Team 1:",win_total[1])
 
 for i in range(4):
@@ -142,6 +155,8 @@ for i in range(4):
 
 print("Wins for team 0:",win_total[0])
 print("Wins for team 1:",win_total[1])
+print("Hand won for team 0:",hand_win_total[0])
+print("Hand won for team 1:",hand_win_total[1])
 print("Point avg Team0:",team_game_avg[0].get_avg())
 print("Point avg Team1:",team_game_avg[1].get_avg()) 
 print("Average number of hands per game:",num_hands_avg[0].get_avg())

@@ -15,9 +15,10 @@ from tensorflow.keras.callbacks import TensorBoard
 
 DEBUG = True # set to False if total_episodes is set to more than 1 
 TOTAL_EPISODES = 1 # set to 1000 to see averages for many runs
-STATE_DIMS = (1,42)
+STATE_DIMS = (1,504)
 N_ACTIONS = 64
 
+np.random.seed(0)
 
 model_actor,model_critic,policy = c5ppo.build_actor_critic_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
 
@@ -45,11 +46,13 @@ while(episode_num < TOTAL_EPISODES):
     done = False
     while not done:
         observation = np.copy(c5env.states[c5env.current_player])
+        int_obs =  np.copy(c5env.int_states[c5env.current_player])
         state_input = c5ppo.convert_state(observation)
 
         if DEBUG:
-            c5utils.print_state(observation,c5env.current_player)
-        legal_actions=c5env.legal_actions(observation)
+            c5utils.print_intstate(int_obs,c5env.current_player)
+            c5utils.print_binstate(observation,c5env.current_player)           
+        legal_actions=c5env.legal_actions()
         #print(c5env.num_plays)
         if DEBUG:
             c5utils.print_actions(legal_actions)
@@ -81,7 +84,7 @@ while(episode_num < TOTAL_EPISODES):
         for i in range(4):
             print("Length of trajectories:",i,len(trajectories[i]))
             for j in range(len(trajectories[i])):
-                c5utils.print_state(trajectories[i][j][0],i)
+                c5utils.print_binstate(trajectories[i][j][0],i)
                 print("Action:",trajectories[i][j][1],"Value:",
                       trajectories[i][j][4],"Reward:", trajectories[i][j][5],"Done:", trajectories[i][j][6])
     eps_states=[]
@@ -149,19 +152,19 @@ while(episode_num < TOTAL_EPISODES):
 #entropy_beta = 0.001
 
 for i in range(len(batch_reward)-1):
-    
     """ print("prob:",batch_prob[i])
     print("adv:",batch_advantages[i])
     print("reward:",batch_reward[i])
     print("value:",batch_value[i])
     print("actionsoh:",batch_actions_onehot[i])
     print("act_dist:",batch_action_dist[i])"""
-    
-    
     curr_loss = c5utils.test_loss(batch_prob[i],batch_advantages[i],batch_reward[i],
                                   batch_value[i],batch_actions_onehot[i],batch_action_dist[i+1])
     print("curr_loss:",curr_loss)
     
+print(batch_value)
+print(batch_reward)
+
 
 # now we have all of our data 
 batch_prob=np.asarray(batch_prob)
