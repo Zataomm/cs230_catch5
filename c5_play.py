@@ -178,6 +178,13 @@ class run_simulations():
                 else:
                     self.hand_win_total[1] += 1
 
+                if self.env.game_points[0] > self.env.game_points[1]:
+                    self.raw_hand_win_total[0] += 1
+                else:
+                    self.raw_hand_win_total[1] += 1
+
+                    
+
                 if self.DEBUG:
                     print("====================  Scores team[0]:",self.score[0])
                     print("====================  Scores team[1]:",self.score[1])
@@ -209,8 +216,10 @@ class run_simulations():
 
         print("Wins for team 0:",self.game_win_total[0])
         print("Wins for team 1:",self.game_win_total[1])
-        print("Hand won for team 0:",self.hand_win_total[0])
-        print("Hand won for team 1:",self.hand_win_total[1])
+        print("Hands won for team 0:",self.hand_win_total[0])
+        print("Hands won for team 1:",self.hand_win_total[1])
+        print("Raw hands won for team 0:",self.raw_hand_win_total[0])
+        print("Raw hands won for team 1:",self.raw_hand_win_total[1])        
         print("Point avg Team0:",self.points_per_game[0].get_avg())
         print("Point avg Team1:",self.points_per_game[1].get_avg()) 
         print("Average number of hands per game:",self.hands_per_game[0].get_avg())
