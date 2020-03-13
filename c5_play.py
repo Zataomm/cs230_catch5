@@ -97,6 +97,7 @@ class run_simulations():
         self.total_hands=0
         self.game_win_total=[0,0]
         self.hand_win_total=[0,0]
+        self.raw_hand_win_total=[0,0]
         self.points_per_game=[c5utils.RunningAvg(),c5utils.RunningAvg()]
         self.hands_per_game=[c5utils.RunningAvg()]
         self.number_of_bids_won = [0,0,0,0]
@@ -113,7 +114,7 @@ class run_simulations():
                 self.player_policy[i]=random_play(random_bidding=self.allow_random_bidding)
             else: # policy is defined by network weights
                 print("Loading weights from:",self.policy_def[i],"into network for player",i)
-                _,_,self.nn_policy[i]=c5ppo.build_actor_critic_network(input_dims=self.STATE_DIMS,
+                _,self.nn_policy[i]=c5ppo.build_actor_network(input_dims=self.STATE_DIMS,
                                                                            output_dims=self.N_ACTIONS)
                 self.nn_policy[i].load_weights(self.policy_def[i])
                 self.player_policy[i]=policy_play(env=self.env,policy=self.nn_policy[i],nactions=self.N_ACTIONS)

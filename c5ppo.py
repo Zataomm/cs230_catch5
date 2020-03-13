@@ -6,7 +6,6 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import initializers
 from tensorflow.keras import backend as K
-import sys
 
 n_actions=64
 clipping_val = 0.2
@@ -14,7 +13,7 @@ critic_discount = 0.5
 entropy_beta = 0.01
 gamma = 0.99
 lmbda = 0.95
-learning_rate = 0.00025
+learning_rate = 0.0001
 
 #turn off warnings and above 
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
@@ -49,7 +48,7 @@ def get_advantages(values, rewards):
     return returns, adv
 
 
-def ppo_loss(oldpolicy_probs, advantages, returns, values):
+def ppo_loss(oldpolicy_probs, advantages):
     def loss(y_true, y_pred):
         newpolicy_probs = K.sum(y_true * y_pred,axis=1)
         old_probs = K.sum(y_true * oldpolicy_probs,axis=1)
@@ -57,21 +56,18 @@ def ppo_loss(oldpolicy_probs, advantages, returns, values):
         ratio = K.exp(K.log(newpolicy_probs + 1e-10) - K.log(old_probs + 1e-10))
         p1 = ratio * advantages
         p2 = K.clip(ratio, min_value=1 - clipping_val, max_value=1 + clipping_val) * advantages
-        actor_loss = K.mean(K.minimum(p1, p2))
-        critic_loss = K.mean(K.square(returns - values))
+        actor_loss = -K.mean(K.minimum(p1, p2))
         entropy_loss =  K.mean(-K.sum((y_pred * K.log(y_pred + 1e-10)),axis=1))
-        total_loss = critic_discount * critic_loss - actor_loss - entropy_beta *entropy_loss
+        total_loss = actor_loss - entropy_beta *entropy_loss
         return total_loss
     return loss
 
 
 
-def build_actor_critic_network(input_dims,output_dims):
+def build_actor_network(input_dims,output_dims):
     state_input = Input(shape=504)
-    oldpolicy_probs = Input(shape=output_dims) #1,out_dims
+    oldpolicy_probs = Input(shape=output_dims) 
     advantages = Input(shape=1)
-    returns = Input(shape=1)
-    values = Input(shape=1)
 
     # Classification block
     dense1 = Dense(512, activation=LeakyReLU(alpha=0.1), name='fc1',
@@ -83,18 +79,33 @@ def build_actor_critic_network(input_dims,output_dims):
     dense4 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc4',
                    kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense3)  
     pred_probs = Dense(output_dims, activation='softmax', name='actor_predictions')(dense4)
+    
+    actor = Model(inputs=[state_input,oldpolicy_probs,advantages],outputs=[pred_probs])
+    actor.compile(optimizer=Adam(lr=learning_rate), loss=[ppo_loss(oldpolicy_probs=oldpolicy_probs,advantages=advantages)])
+    actor.summary()
+    
+    policy = Model(inputs=[state_input],outputs=[pred_probs])
+    
+    return actor,policy
+
+
+def build_critic_network(input_dims):
+    state_input = Input(shape=504)
+
+    # Classification block
+    dense1 = Dense(512, activation=LeakyReLU(alpha=0.1), name='fc1',
+                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(state_input)
+    dense2 = Dense(512, activation=LeakyReLU(alpha=0.1), name='fc2',
+                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense1)
+    dense3 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc3',
+                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense2)
+    dense4 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc4',
+                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense3)  
     pred_value = Dense(1, activation='tanh',name='critic_values')(dense4)
 
-    
-    actor = Model(inputs=[state_input,oldpolicy_probs,advantages,returns,values],outputs=[pred_probs])
-    actor.compile(optimizer=Adam(lr=learning_rate), loss=[ppo_loss(oldpolicy_probs=oldpolicy_probs,
-                                                         advantages=advantages,returns=returns,values=values)])
-    actor.summary()
     
     critic = Model(inputs=[state_input], outputs=[pred_value])
     critic.compile(optimizer=Adam(lr=learning_rate), loss='mse')
     critic.summary()
     
-    policy = Model(inputs=[state_input],outputs=[pred_probs])
-    
-    return actor,critic,policy
+    return critic

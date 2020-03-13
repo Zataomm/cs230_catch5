@@ -20,7 +20,8 @@ N_ACTIONS = 64
 
 np.random.seed(0)
 
-model_actor,model_critic,policy = c5ppo.build_actor_critic_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
+model_actor,policy = c5ppo.build_actor_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
+model_critic = c5ppo.build_critic_network(input_dims=STATE_DIMS)
 
 
 episode_num=0
@@ -47,7 +48,7 @@ while(episode_num < TOTAL_EPISODES):
     while not done:
         observation = np.copy(c5env.states[c5env.current_player])
         int_obs =  np.copy(c5env.int_states[c5env.current_player])
-        state_input = c5ppo.convert_state(observation)
+        state_input = observation[np.newaxis,:]
 
         if DEBUG:
             c5utils.print_intstate(int_obs,c5env.current_player)
@@ -76,7 +77,7 @@ while(episode_num < TOTAL_EPISODES):
     # Now add the rewards,states, and values for terminal states i trajectories
     for i in range(4):
         observation = np.copy(c5env.states[i])
-        state_input = c5ppo.convert_state(observation)
+        state_input = observation[np.newaxis,:]
         q_value = 0
         newtraj=[observation,-1,None,None,q_value,c5env.rewards[i]/9.0,True,None]
         trajectories[i].append(newtraj)      

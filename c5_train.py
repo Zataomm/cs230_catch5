@@ -16,16 +16,17 @@ from tensorflow.keras.models import save_model
 
 
 DEBUG = False # set to False if total_episodes is set to more than 1 
-BATCH_SIZE=8
-EPOCHS=5
-TOTAL_EPISODES = 16 # x29 trajectories
+BATCH_SIZE=1
+EPOCHS=1
+TOTAL_EPISODES = 32 # x29 trajectories
 STATE_DIMS = 504
 
 N_ACTIONS = 64
 ITERATIONS=1000001
 SAVE_EVERY=50
 
-model_actor,model_critic,policy = c5ppo.build_actor_critic_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
+model_actor,policy = c5ppo.build_actor_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
+model_critic = c5ppo.build_critic_network(input_dims=STATE_DIMS)
 tensor_board = TensorBoard(log_dir='./logs')
 
 
@@ -181,9 +182,9 @@ for itrs in range(ITERATIONS):
     print("\t batch_onehot:",batch_actions_onehot.shape)
     print("\t batch_returns:",batch_returns.shape)           
     
-    actor_loss = model_actor.fit([batch_states, batch_prob, batch_advantages,batch_returns, batch_value],
-                                 [batch_actions_onehot],batch_size=BATCH_SIZE,verbose=True, shuffle=True,
-                                 epochs=EPOCHS,callbacks=[tensor_board])
+    actor_loss = model_actor.fit([batch_states, batch_prob, batch_advantages],
+                                 [batch_actions_onehot],batch_size=BATCH_SIZE,verbose=False, shuffle=True,
+                                 epochs=EPOCHS)#,callbacks=[tensor_board])
     
     critic_loss = model_critic.fit([batch_states], [batch_returns],batch_size=BATCH_SIZE,shuffle=True,
                                    epochs=EPOCHS,verbose=True, callbacks=[tensor_board])
