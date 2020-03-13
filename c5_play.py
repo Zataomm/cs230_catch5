@@ -5,6 +5,7 @@ Created on Fri Feb  7 12:19:17 2020
 
 @author: jmonroe
 """
+import argparse
 import numpy as np
 import catch5_env
 import c5utils
@@ -12,151 +13,221 @@ import c5ppo
 import time
 from tensorflow.keras.models import load_model
 
-DEBUG = False # set to False if total_episodes is set to more than 1 
+# set up simple argument parser 
+parser = argparse.ArgumentParser(description='Parser for catch5 play script')
+parser.add_argument('-p1', action='store',
+                    default='random',type=str,
+                    dest='policy1',help='Model file for policy for Team1')
+parser.add_argument('-p2', action='store',
+                    default='random',type=str,
+                    dest='policy2',help='Model file for policy for Team2')
+parser.add_argument('-tg', action='store',
+                    type=int,
+                    default=1,
+                    dest='total_games',
+                    help='Total games to play')
+parser.add_argument('-debug', action='store_true',
+                    default=False,
+                    dest='debug',
+                    help='Turn on debugging')
+parser.add_argument('-rb', action='store_false',
+                    default=True,
+                    dest='random_bid',
+                    help='Turn off random bidding')
 
 
-STATE_DIMS = (1,504)
-N_ACTIONS = 64
+class random_play():
+    """ Implements random play for players in tournament."""
 
-winning_score = 31
-tic = time.process_time()
-total_time=0
-win_total=[0,0]
-total_hands=0
-hand_win_total=[0,0]
+    def __init__(self,random_bidding=True):
 
+        self.random_bidding=random_bidding
 
-TOTAL_GAMES=100
-game_num=0
-
-team_game_avg = [c5utils.RunningAvg(),c5utils.RunningAvg()]
-num_hands_avg = [c5utils.RunningAvg()]
-
-number_of_bids_won = [0,0,0,0]
-average_winning_bid = [c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg()]
-average_rewards_per_winning_bid=[c5utils.RunningAvg(),c5utils.RunningAvg(),
-                         c5utils.RunningAvg(),c5utils.RunningAvg()]
-
-#setup policy network to use for playing for players #0 and 2 
-_,_,policy = c5ppo.build_actor_critic_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
-
-#load networks from file
-policy = load_model('models/policy_2200.hdf5')
-
-#setup policy network to use for playing for players #0 and 2 
-_,_,policy2 = c5ppo.build_actor_critic_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
-
-#load networks from file
-policy2 = load_model('models/policy_1000.hdf5')
+    def play(self,state_input,legal_actions):
+        action=c5utils.random_action(legal_actions)
+        if not self.random_bidding:
+            if action <8:
+                if legal_actions[0,0] > 0: #pass if possible
+                    action=0
+                else:
+                    action=1  # min-bid
+        return action
 
 
-#setup environment
-c5env=catch5_env.catch5()
+class policy_play():
+    """ Implements play via policy for players in tournament."""
 
-
-while(game_num < TOTAL_GAMES):
-
-
-    team_total = [0,0]
-    num_hands=0  
-    
-    while team_total[0] < winning_score and team_total[1] < winning_score:
-
-        if DEBUG:
-            print("Dealer is player ",c5env.dealer)
-
-        done = False
-        while not done:
-            observation = np.copy(c5env.states[c5env.current_player])
-            int_obs =  np.copy(c5env.int_states[c5env.current_player])
-            state_input = observation[np.newaxis,:]
-            if DEBUG:
-                c5utils.print_binstate(observation,c5env.current_player)
-
-            legal_actions=c5env.legal_actions()
-
-            if DEBUG:
-                c5utils.print_actions(legal_actions)
-            
-            # now get the next move - and update states depending on who is playing
-            if (c5env.current_player%2) == 0:
-                action_dist = policy.predict([state_input], steps=1)
-                legal_action_dist=c5env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
-                #action = np.random.choice(N_ACTIONS, p=legal_action_dist[0, :])
-                action = np.argmax(legal_action_dist[0, :])
-                #force bid of only 3 
-                #if action < 8:
-                #    action = 1
-            else:
-                #action_dist = policy2.predict([state_input], steps=1)
-                #legal_action_dist=c5env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
-                #action = np.random.choice(N_ACTIONS, p=legal_action_dist[0, :])
-                #action = np.argmax(legal_action_dist[0, :])
-                action=c5utils.random_action(legal_actions)
-                #force bid of only 3
-                if action < 8:
-                    action = 1 
-                
-            if DEBUG:
-                c5utils.print_action(action)
-                print("Step number = ",c5env.num_plays)
-                
-            #take a step and return next state 
-            observation,reward,done,info = c5env.step(c5env.action_map[action])
-
-        del observation,int_obs
-        num_hands+=1
-
-        number_of_bids_won[c5env.bidder]+=1
-        average_winning_bid[c5env.bidder].set_avg(c5env.best_bid)
-        average_rewards_per_winning_bid[c5env.bidder].set_avg(c5env.rewards[c5env.bidder])
-        if DEBUG:
-            c5utils.print_tricks(c5env.trick_info)
-
-        if DEBUG:
-            for i in range(4):
-                print("Rewards for team ",i,":",c5env.rewards[i])
-
-        team_total[0]+=c5env.rewards[0]
-        team_total[1]+=c5env.rewards[1]
-
-        if c5env.rewards[0] > c5env.rewards[1]:
-            hand_win_total[0] += 1
+    def __init__(self,env,policy,nactions,pick_max=True):
+        
+        self.pick_max=pick_max
+        self.policy = policy
+        self.nactions=nactions
+        self.env = env
+        
+    def play(self,state_input,legal_actions):
+        action_dist = self.policy.predict([state_input], steps=1)
+        legal_action_dist=self.env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
+        if self.pick_max:
+            action = np.argmax(legal_action_dist[0, :])
         else:
-            hand_win_total[1] += 1
-        
-        if DEBUG:
-            print("====================  Scores team[0]:",team_total[0])
-            print("====================  Scores team[1]:",team_total[1])
-        
-        
-        #reset and count hands 
-        c5env.reset()        
-        
-        if team_total[0]>=winning_score and team_total[0] > team_total[1]:
-            win_total[0]+=1
-        if team_total[1]>=winning_score and team_total[1] > team_total[0]:
-            win_total[1] +=1
+            action = np.random.choice(N_ACTIONS, p=legal_action_dist[0, :])
+        return action 
+            
+class run_simulations():
+    """ Class used to run simulations for catch5 - using a random player, as well as being able to 
+        load players policy's from input files, etc....  Program will keep meaningful stats in order 
+        to be able to tell if networks are improving.  
+    """
+    def __init__(self,DEBUG=True,TOTAL_GAMES=10,policy_def={0:"random",1:"random"},allow_random_bidding=True):
 
+        # parameters
+        self.DEBUG = DEBUG
+        self.TOTAL_GAMES=TOTAL_GAMES
+        self.policy_def=policy_def
+        self.player_policy=[None,None]
+        self.nn_policy=[None,None]
+        self.STATE_DIMS = (1,504)
+        self.N_ACTIONS = 64
+        self.winning_score=31
+        self.allow_random_bidding=allow_random_bidding
+        self.env=catch5_env.catch5()
         
-    num_hands_avg[0].set_avg(num_hands)
-    team_game_avg[0].set_avg(team_total[0])
-    team_game_avg[1].set_avg(team_total[1])
+        #stats and counters
+        self.score=[0,0]
+        self.total_hands=0
+        self.game_win_total=[0,0]
+        self.hand_win_total=[0,0]
+        self.points_per_game=[c5utils.RunningAvg(),c5utils.RunningAvg()]
+        self.hands_per_game=[c5utils.RunningAvg()]
+        self.number_of_bids_won = [0,0,0,0]
+        self.average_winning_bid = [c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg()]
+        self.average_rewards_per_winning_bid=[c5utils.RunningAvg(),c5utils.RunningAvg(),
+                                              c5utils.RunningAvg(),c5utils.RunningAvg()]
+        
+
+    def set_policies(self):
+        # loop through the list and set policies for each of the players
+        for i in range(2):
+            if self.policy_def[i] == "random":
+                print("Setting team:",i,"to random.")
+                self.player_policy[i]=random_play(random_bidding=self.allow_random_bidding)
+            else: # policy is defined by network weights
+                print("Loading weights from:",self.policy_def[i],"into network for player",i)
+                _,_,self.nn_policy[i]=c5ppo.build_actor_critic_network(input_dims=self.STATE_DIMS,
+                                                                           output_dims=self.N_ACTIONS)
+                self.nn_policy[i] = load_model(self.policy_def[i])
+                self.player_policy[i]=policy_play(env=self.env,policy=self.nn_policy[i],nactions=self.N_ACTIONS)
+
+    def play_games(self):
+        game_num=0
+        bid_suits=[0,0,0,0]
+        while(game_num < self.TOTAL_GAMES):
+            self.score = [0,0]
+            self.num_hands=0  
+
+            # play a game 
+            while self.score[0] < self.winning_score and self.score[1] < self.winning_score:
+
+                if self.DEBUG:
+                    print("Dealer is player ",self.env.dealer)
+                #play a hand 
+                done = False
+
+                while not done:
+                    observation = self.env.states[self.env.current_player]
+                    state_input = observation[np.newaxis,:]
+                    if self.DEBUG:
+                        c5utils.print_binstate(observation,self.env.current_player)
+
+                    legal_actions=self.env.legal_actions()
+        
+                    if self.DEBUG:
+                        c5utils.print_actions(legal_actions)
+
+                    # now get the next move - and update states depending on who is playing
+                    action=self.player_policy[self.env.current_player%2].play(state_input,legal_actions)
+
+                                    
+                    if self.DEBUG:
+                        c5utils.print_action(action)
+                        print("Step number = ",self.env.num_plays)
+
+                    #take a step and return next state 
+                    observation,reward,done,_ = self.env.step(self.env.action_map[action])
+
+
+                self.num_hands+=1
+
+                self.number_of_bids_won[self.env.bidder]+=1
+                self.average_winning_bid[self.env.bidder].set_avg(self.env.best_bid)
+                self.average_rewards_per_winning_bid[self.env.bidder].set_avg(self.env.rewards[self.env.bidder])
+                bid_suits[int(self.env.bid_suit)]+=1
+                if self.DEBUG:
+                    c5utils.print_tricks(self.env.trick_info)
+
+                if self.DEBUG:
+                    for i in range(4):
+                        print("Rewards for team ",i,":",self.env.rewards[i])
+
+                self.score[0]+=self.env.rewards[0]
+                self.score[1]+=self.env.rewards[1]
+
+                if self.env.rewards[0] > self.env.rewards[1]:
+                    self.hand_win_total[0] += 1
+                else:
+                    self.hand_win_total[1] += 1
+
+                if self.DEBUG:
+                    print("====================  Scores team[0]:",self.score[0])
+                    print("====================  Scores team[1]:",self.score[1])
+
+
+                #reset and count hands 
+                self.env.reset()        
+
+                if self.score[0]>=self.winning_score and self.score[0] > self.score[1]:
+                    self.game_win_total[0]+=1
+                if self.score[1]>=self.winning_score and self.score[1] > self.score[0]:
+                    self.game_win_total[1] +=1
+
+            self.hands_per_game[0].set_avg(self.num_hands)
+            self.points_per_game[0].set_avg(self.score[0])
+            self.points_per_game[1].set_avg(self.score[1])
+
+            game_num+=1
+
+
+            print("Current score: Team 0:",self.game_win_total[0],"Team 1:",self.game_win_total[1])
+
+        for i in range(4):
+            print("Player:",i,"number of winning bids:",self.number_of_bids_won[i])
+            print("Average winning bid:",self.average_winning_bid[i].get_avg())
+            print("Avg rewards per winning bid:",self.average_rewards_per_winning_bid[i].get_avg())
+            
+        print("Bid suit distribution:",bid_suits)
+
+        print("Wins for team 0:",self.game_win_total[0])
+        print("Wins for team 1:",self.game_win_total[1])
+        print("Hand won for team 0:",self.hand_win_total[0])
+        print("Hand won for team 1:",self.hand_win_total[1])
+        print("Point avg Team0:",self.points_per_game[0].get_avg())
+        print("Point avg Team1:",self.points_per_game[1].get_avg()) 
+        print("Average number of hands per game:",self.hands_per_game[0].get_avg())
+            
+
+if __name__ == "__main__":
+
     
-    game_num+=1
+    args = parser.parse_args()
 
+    print("policy for Team1:",args.policy1)
+    print("policy for Team2:",args.policy2)
+    print("Total games to play:",args.total_games)
+    print("Debug flag:",args.debug)
+    print("Allow random players to bid:",args.random_bid)
+    
+    sim=run_simulations(policy_def={0:args.policy1,1:args.policy2},allow_random_bidding=args.random_bid,
+                        DEBUG=args.debug,TOTAL_GAMES=args.total_games)
+    sim.set_policies()
+    sim.play_games()
 
-    print("Current score: Team 0:",win_total[0],"Team 1:",win_total[1])
-
-for i in range(4):
-    print("Player:",i,"number of winning bids:",number_of_bids_won[i])
-    print("Average winning bid:",average_winning_bid[i].get_avg())
-    print("Avg rewards per winning bid:",average_rewards_per_winning_bid[i].get_avg())
-
-print("Wins for team 0:",win_total[0])
-print("Wins for team 1:",win_total[1])
-print("Hand won for team 0:",hand_win_total[0])
-print("Hand won for team 1:",hand_win_total[1])
-print("Point avg Team0:",team_game_avg[0].get_avg())
-print("Point avg Team1:",team_game_avg[1].get_avg()) 
-print("Average number of hands per game:",num_hands_avg[0].get_avg())

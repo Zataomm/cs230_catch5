@@ -59,6 +59,7 @@ class catch5():
         self.trick_info=[]
         self.bidder=-1
         self.best_bid=-1
+        self.bid_suit=-1
         self.rewards=[0,0,0,0]
         self.game_points=[0,0,0,0]
         self.penalty=[0,0,0,0]
@@ -164,7 +165,7 @@ class catch5():
         """
         if (self.num_plays%4) != 0: #not at end of round - keep going
             self.current_player = (self.current_player+1)%4
-        elif self.num_plays > 4: # past bidding and at end of hand 
+        elif self.num_plays > 4: # past bidding and at end of trick 
             four_zeros=np.zeros((1,4))
             fourx52_zeros=np.zeros((1,4*52))
             trick = list(self.int_states[self.current_player][0,5:9])
@@ -173,6 +174,7 @@ class catch5():
             trick_winner=(self.current_player+trick_winner)%4
             self.trick_info.append([trick_winner,trick])
             self.current_player=trick_winner
+            self.bid_suit=scoop_suit
             for i in range(4):
                 self.int_states[i][0,5:9]=four_zeros
                 self.states[i][0,(32+4):(32+4+4*52)]=fourx52_zeros
