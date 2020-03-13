@@ -11,27 +11,28 @@ import c5utils
 import c5ppo
 import time
 from tensorflow.keras.callbacks import TensorBoard
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import save_model
 #from tensorflow.keras import backend as K
 
 
 DEBUG = False # set to False if total_episodes is set to more than 1 
-BATCH_SIZE=116
+BATCH_SIZE=8
 EPOCHS=5
-TOTAL_EPISODES = 100 # set to 1000 to see averages for many runs
-STATE_DIMS = (1,504)
+TOTAL_EPISODES = 16 # x29 trajectories
+STATE_DIMS = 504
+
 N_ACTIONS = 64
 ITERATIONS=1000001
-SAVE_EVERY=100
+SAVE_EVERY=50
 
 model_actor,model_critic,policy = c5ppo.build_actor_critic_network(input_dims=STATE_DIMS, output_dims=N_ACTIONS)
 tensor_board = TensorBoard(log_dir='./logs')
 
 
 print("Saving Initial Networks:")
-model_actor.save('models/model_actor_init.hdf5')
-model_critic.save('models/model_critic_init.hdf5')
-policy.save('models/policy_init.hdf5')
+model_actor.save_weights('models/model_actor_init.hdf5')
+model_critic.save_weights('models/model_critic_init.hdf5')
+policy.save_weights('models/policy_init.hdf5')
 
 
 for itrs in range(ITERATIONS):
@@ -69,7 +70,7 @@ for itrs in range(ITERATIONS):
             action_dist = policy.predict([state_input], steps=1)
             legal_action_dist=c5env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
             q_value = model_critic.predict([state_input], steps=1)
-            action = np.random.choice(N_ACTIONS, p=legal_action_dist[0, :])
+            action = np.random.choice(N_ACTIONS, p=legal_action_dist[:])
             action_onehot = np.zeros(N_ACTIONS)
             action_onehot[action] = 1           
             newtraj=[observation,action,action_onehot,legal_action_dist,np.squeeze(q_value),0,False]
@@ -154,23 +155,23 @@ for itrs in range(ITERATIONS):
     # now we have all of our data - lets train
     batch_prob=np.asarray(batch_prob)
     bln=len(batch_advantages)
+    batch_prob=np.reshape(batch_prob,newshape=(-1, N_ACTIONS))
     batch_advantages=np.asarray(batch_advantages)
     batch_advantages= (batch_advantages-batch_advantages.mean()) / (batch_advantages.std() + 1e-8)
-    batch_advantages=np.reshape(batch_advantages,(bln,1,1))
+    batch_advantages=np.reshape(batch_advantages,(bln))
     batch_value=np.asarray(batch_value)
-    batch_value=np.reshape(batch_value,(len(batch_value),1,1))
+    batch_value=np.reshape(batch_value,(len(batch_value)))
 
     batch_states=np.asarray(batch_states)
     batch_reward=np.asarray(batch_reward)
     batch_actions_onehot=np.asarray(batch_actions_onehot)
 
-    batch_reward =np.reshape(batch_reward, newshape=(-1, 1, 1))
-    batch_actions_onehot=np.reshape(batch_actions_onehot, newshape=(-1,1, N_ACTIONS))
+    batch_reward =np.reshape(batch_reward, newshape=(-1))
+    batch_actions_onehot=np.reshape(batch_actions_onehot, newshape=(-1, N_ACTIONS))
 
     batch_returns=np.asarray(batch_returns)
-    batch_returns=np.reshape(batch_returns, newshape=(-1, 1,1))
+    batch_returns=np.reshape(batch_returns, newshape=(-1))
 
-    """
     print("Shapes going into training:")
     print("\t batch_states:",batch_states.shape)
     print("\t batch_prob:",batch_prob.shape)
@@ -179,7 +180,7 @@ for itrs in range(ITERATIONS):
     print("\t batch_value:",batch_value.shape)
     print("\t batch_onehot:",batch_actions_onehot.shape)
     print("\t batch_returns:",batch_returns.shape)           
-    """
+    
     actor_loss = model_actor.fit([batch_states, batch_prob, batch_advantages,batch_returns, batch_value],
                                  [batch_actions_onehot],batch_size=BATCH_SIZE,verbose=True, shuffle=True,
                                  epochs=EPOCHS,callbacks=[tensor_board])
@@ -189,8 +190,7 @@ for itrs in range(ITERATIONS):
 
     if itrs%SAVE_EVERY == 0:
         print("Saving network weights at iteration:",itrs)
-        model_actor.save('models/model_actor_{}.hdf5'.format(itrs))
-        model_critic.save('models/model_critic_{}.hdf5'.format(itrs))
-        policy.save('models/policy_{}.hdf5'.format(itrs))
+        model_actor.save_weights('models/model_actor_{}.hdf5'.format(itrs))
+        model_critic.save_weights('models/model_critic_{}.hdf5'.format(itrs))
+        policy.save_weights('models/policy_{}.hdf5'.format(itrs))
 
- 

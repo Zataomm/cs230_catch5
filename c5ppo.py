@@ -1,7 +1,7 @@
 import numpy as np
 import logging
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Dense, Add
+from tensorflow.keras.layers import Input, Dense, Add, LeakyReLU
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import initializers
@@ -14,7 +14,7 @@ critic_discount = 0.5
 entropy_beta = 0.01
 gamma = 0.99
 lmbda = 0.95
-learning_rate = 0.00005
+learning_rate = 0.00025
 
 #turn off warnings and above 
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
@@ -57,27 +57,31 @@ def ppo_loss(oldpolicy_probs, advantages, returns, values):
         ratio = K.exp(K.log(newpolicy_probs + 1e-10) - K.log(old_probs + 1e-10))
         p1 = ratio * advantages
         p2 = K.clip(ratio, min_value=1 - clipping_val, max_value=1 + clipping_val) * advantages
-        actor_loss = -K.mean(K.minimum(p1, p2))
+        actor_loss = K.mean(K.minimum(p1, p2))
         critic_loss = K.mean(K.square(returns - values))
-        entropy_loss =  K.mean(-(newpolicy_probs * K.log(newpolicy_probs + 1e-10)))
-        total_loss = critic_discount * critic_loss + actor_loss - entropy_beta *entropy_loss
+        entropy_loss =  K.mean(-K.sum((y_pred * K.log(y_pred + 1e-10)),axis=1))
+        total_loss = critic_discount * critic_loss - actor_loss - entropy_beta *entropy_loss
         return total_loss
     return loss
 
 
 
 def build_actor_critic_network(input_dims,output_dims):
-    state_input = Input(shape=input_dims)
-    oldpolicy_probs = Input(shape=(1, output_dims))
-    advantages = Input(shape=(1,1))
-    returns = Input(shape=(1,1))
-    values = Input(shape=(1,1))
+    state_input = Input(shape=504)
+    oldpolicy_probs = Input(shape=output_dims) #1,out_dims
+    advantages = Input(shape=1)
+    returns = Input(shape=1)
+    values = Input(shape=1)
 
     # Classification block
-    dense1 = Dense(512, activation='relu', name='fc1',kernel_initializer='glorot_normal')(state_input)
-    dense2 = Dense(512, activation='relu', name='fc2',kernel_initializer='glorot_normal')(dense1)
-    dense3 = Dense(256, activation='relu', name='fc3',kernel_initializer='glorot_normal')(dense2)
-    dense4 = Dense(256, activation='relu', name='fc4',kernel_initializer='glorot_normal')(dense3)  
+    dense1 = Dense(512, activation=LeakyReLU(alpha=0.1), name='fc1',
+                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(state_input)
+    dense2 = Dense(512, activation=LeakyReLU(alpha=0.1), name='fc2',
+                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense1)
+    dense3 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc3',
+                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense2)
+    dense4 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc4',
+                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense3)  
     pred_probs = Dense(output_dims, activation='softmax', name='actor_predictions')(dense4)
     pred_value = Dense(1, activation='tanh',name='critic_values')(dense4)
 
@@ -94,4 +98,3 @@ def build_actor_critic_network(input_dims,output_dims):
     policy = Model(inputs=[state_input],outputs=[pred_probs])
     
     return actor,critic,policy
-

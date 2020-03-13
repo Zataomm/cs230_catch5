@@ -258,23 +258,23 @@ def random_action(actions):
     legal_acts = np.argwhere(actions==1)
     assert(legal_acts.shape[0]>0)
     rand_action=np.random.randint(legal_acts.shape[0])
-    return legal_acts[rand_action][1]
+    return legal_acts[rand_action][0]
 
 def print_actions(actions):
     bid_str=""
     print("======== Available Actions: ==========")
     for i in range(8):
-        if actions[0,i]==1:
+        if actions[i]==1:
             bid_str += str(action_map[i])+","
     print("Bids:",bid_str)
     suit_str=""
     for i in range(8,12):
-        if actions[0,i]==1:
+        if actions[i]==1:
             suit_str += char_suits[action_map[i]-1]+","
     print("Suits:",suit_str)
     card_str=""
     for i in range(12,64):
-        if actions[0,i]==1:
+        if actions[i]==1:
             card_str += ppCards[action_map[i]-1]+","
     print("Cards:",card_str)
     
@@ -289,79 +289,79 @@ def print_action(action):
 
 def print_intstate(state,player):
     print("======== State for player:",player," ==========")
-    if state[0,0] > 0:
-        print("Bid is:",state[0,0])
+    if state[0] > 0:
+        print("Bid is:",state[0])
     else:
         print("Waiting to bid")
         for i in range(3):
-            if state[0,i+1] > 0:
-                print("Player",(player+1+i)%4,"bid:",state[0,i+1])
-    if state[0,4]>0:
-        print("Bid suit is:",char_suits[int(state[0,4])-1])
+            if state[i+1] > 0:
+                print("Player",(player+1+i)%4,"bid:",state[i+1])
+    if state[4]>0:
+        print("Bid suit is:",char_suits[int(state[4])-1])
     trk_str=""
     for i in range(5,9):
-        if state[0,i]==0:
+        if state[i]==0:
             trk_str+="X "
         else:
-            trk_str+=ppCards[int(state[0,i])-1]+" "        
+            trk_str+=ppCards[int(state[i])-1]+" "        
     print("Cards on table:",trk_str)
     hand=""
     for i in range(9,18):
-        if state[0,i]>0:
-            hand+=ppCards[int(state[0,i])-1]+" "      
+        if state[i]>0:
+            hand+=ppCards[int(state[i])-1]+" "      
     print("Cards in hand:",hand)
     hand=""
     for i in range(18,24):
-        if state[0,i]>0:
-            hand+=ppCards[int(state[0,i])-1]+" "      
+        if state[i]>0:
+            hand+=ppCards[int(state[i])-1]+" "      
     print("My discards:",hand)   
     hand=""
     for i in range(24,30):
-        if state[0,i]>0:
-            hand+=ppCards[int(state[0,i])-1]+" "      
+        if state[i]>0:
+            hand+=ppCards[int(state[i])-1]+" "      
     print("Player",(player+1)%4," discards:",hand)    
     hand=""
     for i in range(30,36):
-        if state[0,i]>0:
-            hand+=ppCards[int(state[0,i])-1]+" "      
+        if state[i]>0:
+            hand+=ppCards[int(state[i])-1]+" "      
     print("Player",(player+2)%4," discards:",hand)        
     hand=""
     for i in range(36,42):
-        if state[0,i]>0:
-            hand+=ppCards[int(state[0,i])-1]+" "      
+        if state[i]>0:
+            hand+=ppCards[int(state[i])-1]+" "      
     print("Player",(player+3)%4," discards:",hand)        
 
 def print_binstate(state,player):
     print("======== State for player:",player," ==========")
-    if np.sum(state[0,0:8]) > 0:
-        print("Bid is:",action_map[get_index(state[0,0:8])])
+    if np.sum(state[0:8]) > 0:
+        print("Bid is:",action_map[get_index(state[0:8])])
     else:
         print("Waiting to bid")
         for i in range(1,4):
-            if np.sum(state[0,8*i:8*(i+1)]) > 0:
-                print("Player",(player+i)%4,"bid:",action_map[get_index(state[0,8*i:8*(i+1)])])
-    if np.sum(state[0,32:36])>0:
-        print("Bid suit is:",char_suits[int(get_index(state[0,32:36]))])
+            if np.sum(state[8*i:8*(i+1)]) > 0:
+                print("Player",(player+i)%4,"bid:",action_map[get_index(state[8*i:8*(i+1)])])
+    if np.sum(state[32:36])>0:
+        print("Bid suit is:",char_suits[int(get_index(state[32:36]))])
     trk_str=""
     for i in range(4):
-        if np.sum(state[0,(36+i*52):(36+(i+1)*52)])==0:
+        if np.sum(state[(36+i*52):(36+(i+1)*52)])==0:
             trk_str+="X "
         else:
-            trk_str+=ppCards[int(get_index(state[0,(36+i*52):(36+(i+1)*52)]))]+" "        
+            trk_str+=ppCards[int(get_index(state[(36+i*52):(36+(i+1)*52)]))]+" "        
     print("Cards on table:",trk_str)
     hand=""
-    cards=bincards2int(state[0,(36+4*52):(36+5*52)])
+    cards=bincards2int(state[(36+4*52):(36+5*52)])
     for c in cards:
         hand+=ppCards[c]+" "      
     print("Cards in hand:",hand)
     hand=""
-    cards=bincards2int(state[0,(36+5*52):(36+6*52)])
+    cards=bincards2int(state[(36+5*52):(36+6*52)])
     for c in cards:
         hand+=ppCards[c]+" "      
     print("My discards:",hand)
     for i in range(3):
         hand=""
-        cards=bincards2int(state[0,(36+(6+i)*52):(36+(7+i)*52)])
+        cards=bincards2int(state[(36+(6+i)*52):(36+(7+i)*52)])
         for c in cards:
             hand+=ppCards[c]+" "      
         print("Player",(player+i+1)%4," discards:",hand)    
@@ -374,47 +374,3 @@ def print_tricks(trick_info):
         print("Player:",trick[0],"trick:",trk_str)
 
         
-
-def test_loss(oldpolicy_probs, advantages, rewards, values, y_true, y_pred):
-    """ Function to try and understand what PPO loss function should be doing
-    sub K.'s with np.'s and print results to get a handle on what is going on ....
-    # oldpolicy is normalized probs, 
-    y_true is one_hot, 
-    y_pred is new probs from model
-    """
-    clipping_val = 0.2
-    critic_discount = 0.5
-    entropy_beta = 0.001
-
-    #y_true=np.reshape(y_true,(1,1,64))
-
-    newpolicy_probs = np.sum(y_true * y_pred)
-    old_probs = np.sum(y_true * oldpolicy_probs)
-
-    ratio = np.exp(np.log(newpolicy_probs + 1e-10) - np.log(old_probs + 1e-10))
-    p1 = ratio * advantages
-    p2 = np.clip(ratio, 1 - clipping_val, 1 + clipping_val) * advantages
-    actor_loss = -np.minimum(p1, p2)
-    critic_loss = np.square(rewards - values)
-    entropy_loss = -(newpolicy_probs * np.log(newpolicy_probs + 1e-10))
-    total_loss = critic_discount * critic_loss + actor_loss - entropy_beta *entropy_loss
-
-    return total_loss
-
-
-"""
-def ppo_loss(oldpolicy_probs, advantages, rewards, values):
-    def loss(y_true, y_pred):
-        newpolicy_probs = K.sum(y_true * y_pred, axis = 1)
-        old_probs = K.sum(y_true * oldpolicy_probs, axis = 1)
-   
-        ratio = K.exp(K.log(newpolicy_probs + 1e-10) - K.log(old_probs + 1e-10))
-        p1 = ratio * advantages
-        p2 = K.clip(ratio, min_value=1 - clipping_val, max_value=1 + clipping_val) * advantages
-        actor_loss = -K.mean(K.minimum(p1, p2))
-        critic_loss = K.mean(K.square(rewards - values))
-        total_loss = critic_discount * critic_loss + actor_loss - entropy_beta * K.mean(
-            -(newpolicy_probs * K.log(newpolicy_probs + 1e-10)))
-        return total_loss
-    return loss
-"""

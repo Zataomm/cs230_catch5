@@ -41,18 +41,18 @@ class catch5():
         #reset deck 
         self.shuffled_deck = list(np.random.permutation(52) + 1)
         #reset players states to zero 
-        self.int_states = [np.zeros((1,self.int_input_dim)),np.zeros((1,self.int_input_dim)),
-                          np.zeros((1,self.int_input_dim)),np.zeros((1,self.int_input_dim))]
-        self.states = [np.zeros((1,self.input_dim)),np.zeros((1,self.input_dim)),
-                          np.zeros((1,self.input_dim)),np.zeros((1,self.input_dim))]        
+        self.int_states = [np.zeros((self.int_input_dim)),np.zeros((self.int_input_dim)),
+                          np.zeros((self.int_input_dim)),np.zeros((self.int_input_dim))]
+        self.states = [np.zeros((self.input_dim)),np.zeros((self.input_dim)),
+                          np.zeros((self.input_dim)),np.zeros((self.input_dim))]        
         # Choose random player to start the game ...
         self.dealer = np.random.randint(4)
         self.current_player = (self.dealer+1)%4
         #Deal initial cards to all players to set initial states 
         for i in range(4):
-            self.int_states[i][0,9:18]=np.sort(self.shuffled_deck[i*9:9*(i+1)])
+            self.int_states[i][9:18]=np.sort(self.shuffled_deck[i*9:9*(i+1)])
             for c in self.shuffled_deck[i*9:9*(i+1)]:
-                self.states[i][0,36+4*52+c-1]=1
+                self.states[i][36+4*52+c-1]=1
         self.shuffled_deck = self.shuffled_deck[36:]
         self.cards_remaining = 16
         self.num_plays=0
@@ -84,31 +84,31 @@ class catch5():
             This is done by looking at different values of the current state 
             to determine the progress of the game (bidding, tricks, lead card, etc)
         """
-        actions = np.full((1,self.softmax_dim),0)
-        ones = np.ones((1,8))
-        if self.int_states[self.current_player][0,0]==0:  # still in bidding phase - first 8 are for bidding
-            actions[0,0:8] = ones[0,0:8]
+        actions = np.full((self.softmax_dim),0)
+        ones = np.ones((8))
+        if self.int_states[self.current_player][0]==0:  # still in bidding phase - first 8 are for bidding
+            actions[0:8] = ones[0:8]
             bid_sum=0
             for i in range(1,4):
-                bid_sum += self.int_states[(self.current_player+i)%4][0,0]
+                bid_sum += self.int_states[(self.current_player+i)%4][0]
             if bid_sum ==3: # all players passed - then dealer must bid - pass is not allowed
-                actions[0,0]=0
-        elif self.int_states[self.current_player][0,4] == 0:  #winning bidder is choosing a suit
-            actions[0,8:12] = ones[0,0:4]
+                actions[0]=0
+        elif self.int_states[self.current_player][4] == 0:  #winning bidder is choosing a suit
+            actions[8:12] = ones[0:4]
         else:  # we are playing so actions have to follow the "follow lead suit rule"
             lead_suit = -1 #find lead suit
             for i in range(3):
-                if self.int_states[self.current_player][0,6+i] > 0:
-                    lead_suit = int((self.int_states[self.current_player][0,6+i]-1)/13)
+                if self.int_states[self.current_player][6+i] > 0:
+                    lead_suit = int((self.int_states[self.current_player][6+i]-1)/13)
                     break
-            cards = list(self.int_states[self.current_player][0,11+int(self.num_plays/4):18])
+            cards = list(self.int_states[self.current_player][11+int(self.num_plays/4):18])
             num,indx = c5utils.numberSuit(cards,lead_suit)
             if num == 0: #any card player holds is legal
                 suit_cards=cards
             else:  # we have a card from lead suit and we have to follow
                 suit_cards = cards[indx[0]:indx[1]+1]
             for c in suit_cards:
-                actions[0,12+int(c)-1]=ones[0,0]               
+                actions[12+int(c)-1]=ones[0]               
         return actions
     
     def update_states(self,action):
@@ -117,47 +117,47 @@ class catch5():
             have already played - so their states are set for future 
             rounds.  
         """
-        if self.int_states[self.current_player][0,0]==0: # action is a bid 
+        if self.int_states[self.current_player][0]==0: # action is a bid 
             for i in range(4):
-                self.int_states[(self.current_player+i)%4][0,(4-i)%4]=action
-                self.states[(self.current_player+i)%4][0,8*((4-i)%4)+self.a2i[action]]=1
-        elif self.int_states[self.current_player][0,4] == 0: # action is selecting a suit 
+                self.int_states[(self.current_player+i)%4][(4-i)%4]=action
+                self.states[(self.current_player+i)%4][8*((4-i)%4)+self.a2i[action]]=1
+        elif self.int_states[self.current_player][4] == 0: # action is selecting a suit 
             players_cards=[]                       
             for i in range(4):
                 #set action
-                self.int_states[(self.current_player+i)%4][0,4]=action
-                self.states[(self.current_player+i)%4][0,32+action-1]=1                
+                self.int_states[(self.current_player+i)%4][4]=action
+                self.states[(self.current_player+i)%4][32+action-1]=1                
                 #get cards for a redeal
-                players_cards.append(list(self.int_states[(self.dealer+i)%4][0,9:18]))
+                players_cards.append(list(self.int_states[(self.dealer+i)%4][9:18]))
             # deal new cards based on selected suits 
             new_hands=c5utils.dealPostBid(players_cards,self.shuffled_deck,action-1)
-            zeros52=np.zeros((1,52))
+            zeros52=np.zeros((52))
             for i in range(4):
-                self.int_states[(self.dealer+i)%4][0,9:18]=new_hands[i]
-                self.states[(self.dealer+i)%4][0,32+4+4*52:32+4+4*52+52]=zeros52
+                self.int_states[(self.dealer+i)%4][9:18]=new_hands[i]
+                self.states[(self.dealer+i)%4][32+4+4*52:32+4+4*52+52]=zeros52
                 for c in new_hands[i]:
                     if c > 0:
-                        self.states[(self.dealer+i)%4][0,32+4+4*52+int(c)-1]=1
+                        self.states[(self.dealer+i)%4][32+4+4*52+int(c)-1]=1
         else: # action is playing a card - set by round
             # update discards for all the players states
             # current player - remove card from hand and place in discards
-            cards=list(self.int_states[self.current_player][0,9:18])
+            cards=list(self.int_states[self.current_player][9:18])
             cards.remove(action)
             cards.append(0)
             cards.sort()
-            self.int_states[self.current_player][0,9:18]=cards
-            self.states[self.current_player][0,32+4+4*52+action-1]=0
+            self.int_states[self.current_player][9:18]=cards
+            self.states[self.current_player][32+4+4*52+action-1]=0
             # add card to everyones discard list - and to trick list 
             for i in range(4):
                 j=(4-i)%4
-                discards=list(self.int_states[(self.current_player+i)%4][0,18+6*j:24+6*j])
+                discards=list(self.int_states[(self.current_player+i)%4][18+6*j:24+6*j])
                 discards[0]=action
                 discards.sort()
-                self.int_states[(self.current_player+i)%4][0,18+6*j:24+6*j]=discards
-                self.states[(self.current_player+i)%4][0,32+4+52*4+52+52*j+action-1]=1
+                self.int_states[(self.current_player+i)%4][18+6*j:24+6*j]=discards
+                self.states[(self.current_player+i)%4][32+4+52*4+52+52*j+action-1]=1
                 #current trick list 
-                self.int_states[(self.current_player+i)%4][0,5+j]=action
-                self.states[(self.current_player+i)%4][0,32+4+52*j+action-1]=1
+                self.int_states[(self.current_player+i)%4][5+j]=action
+                self.states[(self.current_player+i)%4][32+4+52*j+action-1]=1
                 
     def setup_next_round(self):
         """ Check if we are at the end of a round - record winning tricks and
@@ -166,20 +166,20 @@ class catch5():
         if (self.num_plays%4) != 0: #not at end of round - keep going
             self.current_player = (self.current_player+1)%4
         elif self.num_plays > 4: # past bidding and at end of trick 
-            four_zeros=np.zeros((1,4))
-            fourx52_zeros=np.zeros((1,4*52))
-            trick = list(self.int_states[self.current_player][0,5:9])
-            scoop_suit=self.int_states[self.current_player][0,4]-1
+            four_zeros=np.zeros((4))
+            fourx52_zeros=np.zeros((4*52))
+            trick = list(self.int_states[self.current_player][5:9])
+            scoop_suit=self.int_states[self.current_player][4]-1
             trick_winner=c5utils.evalTrick(trick,scoop_suit)
             trick_winner=(self.current_player+trick_winner)%4
             self.trick_info.append([trick_winner,trick])
             self.current_player=trick_winner
             self.bid_suit=scoop_suit
             for i in range(4):
-                self.int_states[i][0,5:9]=four_zeros
-                self.states[i][0,(32+4):(32+4+4*52)]=fourx52_zeros
-        elif self.num_plays == 4 and self.int_states[self.current_player][0,4] == 0:
-            bidder,self.best_bid = c5utils.winning_bidder(list(self.int_states[self.current_player][0,0:4]))
+                self.int_states[i][5:9]=four_zeros
+                self.states[i][(32+4):(32+4+4*52)]=fourx52_zeros
+        elif self.num_plays == 4 and self.int_states[self.current_player][4] == 0:
+            bidder,self.best_bid = c5utils.winning_bidder(list(self.int_states[self.current_player][0:4]))
             self.bidder = (self.current_player+bidder)%4
             self.current_player=self.bidder      
             self.num_plays-=1 #keeps the round count correct
@@ -192,7 +192,7 @@ class catch5():
             -1 and +1 and be compatible with the output of tanh function.
         """
         assert(len(self.trick_info)==6)
-        scoop_suit=self.int_states[self.current_player][0,4]-1
+        scoop_suit=self.int_states[self.current_player][4]-1
         for t_inf in self.trick_info:
             trick_val=0
             for cd in t_inf[1]:

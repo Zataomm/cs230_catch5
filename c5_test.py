@@ -15,7 +15,7 @@ from tensorflow.keras.callbacks import TensorBoard
 
 DEBUG = True # set to False if total_episodes is set to more than 1 
 TOTAL_EPISODES = 1 # set to 1000 to see averages for many runs
-STATE_DIMS = (1,504)
+STATE_DIMS = 504
 N_ACTIONS = 64
 
 np.random.seed(0)
@@ -59,7 +59,7 @@ while(episode_num < TOTAL_EPISODES):
         action_dist = policy.predict([state_input], steps=1)
         legal_action_dist=c5env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
         q_value = model_critic.predict([state_input], steps=1)
-        action = np.random.choice(N_ACTIONS, p=legal_action_dist[0, :])
+        action = np.random.choice(N_ACTIONS, p=legal_action_dist[ :])
         action_onehot = np.zeros(N_ACTIONS)
         action_onehot[action] = 1           
         newtraj=[observation,action,action_onehot,legal_action_dist,np.squeeze(q_value),0,False,action_dist]

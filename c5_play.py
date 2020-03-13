@@ -11,7 +11,7 @@ import catch5_env
 import c5utils
 import c5ppo
 import time
-from tensorflow.keras.models import load_model
+import tensorflow as tf
 
 # set up simple argument parser 
 parser = argparse.ArgumentParser(description='Parser for catch5 play script')
@@ -47,7 +47,7 @@ class random_play():
         action=c5utils.random_action(legal_actions)
         if not self.random_bidding:
             if action <8:
-                if legal_actions[0,0] > 0: #pass if possible
+                if legal_actions[0] > 0: #pass if possible
                     action=0
                 else:
                     action=1  # min-bid
@@ -68,9 +68,9 @@ class policy_play():
         action_dist = self.policy.predict([state_input], steps=1)
         legal_action_dist=self.env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
         if self.pick_max:
-            action = np.argmax(legal_action_dist[0, :])
+            action = np.argmax(legal_action_dist[ :])
         else:
-            action = np.random.choice(N_ACTIONS, p=legal_action_dist[0, :])
+            action = np.random.choice(N_ACTIONS, p=legal_action_dist[ :])
         return action 
             
 class run_simulations():
@@ -115,7 +115,7 @@ class run_simulations():
                 print("Loading weights from:",self.policy_def[i],"into network for player",i)
                 _,_,self.nn_policy[i]=c5ppo.build_actor_critic_network(input_dims=self.STATE_DIMS,
                                                                            output_dims=self.N_ACTIONS)
-                self.nn_policy[i] = load_model(self.policy_def[i])
+                self.nn_policy[i].load_weights(self.policy_def[i])
                 self.player_policy[i]=policy_play(env=self.env,policy=self.nn_policy[i],nactions=self.N_ACTIONS)
 
     def play_games(self):
