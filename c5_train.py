@@ -318,7 +318,7 @@ if __name__ == "__main__":
     
     for i in range(args.iterations):
         train.generate_batch()
-        a_hist,c_hist  = train.compute_grads(0)
+        a_hist,c_hist  = train.compute_grads(i)
         print("\na_hist dict:",a_hist.history)
         print("\nc_hist dict:",c_hist.history)
         print(np.mean(np.asarray(a_hist.history['loss'])),np.mean(np.asarray(c_hist.history['loss'])))
