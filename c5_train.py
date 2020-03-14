@@ -68,13 +68,23 @@ parser.add_argument('-save', action='store',
                     dest='save_every',
                     help='Save weights after given iterations')
 
+parser.add_argument('-intstate', action='store_true',
+                    default=False,
+                    dest='intstate',
+                    help='Train with 42 dimensional integer states instead of default 504 dimensional binary states')
+
+parser.add_argument('-state_dims', action='store',
+                    type=int,
+                    default=504,
+                    dest='state_dimentions',
+                    help='Input state dimensions for NN - set to 42 if using -intstate option.')
 
 class run_training():
     """ Class used to train networks to learn how to play the game catch5.  
     """
     def __init__(self,DEBUG=False,CLIP_VAL=0.2,CRITIC_DIS=0.5,ENTROPY_BETA=0.01,GAMMA=0.99,
                  LMBDA=0.95,LR=0.00005,BATCH_SIZE=8,EPOCHS=5,TOTAL_EPISODES=32,STATE_DIMS=504,
-                 N_ACTIONS=64,ITERATIONS=1000001,SAVE_EVERY=50):
+                 N_ACTIONS=64,ITERATIONS=1000001,SAVE_EVERY=50,USE_INT_STATES=false):
 
         #parameters
         self.clipping_val = CLIP_VAL
@@ -90,6 +100,7 @@ class run_training():
         self.STATE_DIMS = STATE_DIMS
         self.N_ACTIONS = N_ACTIONS
         self.SAVE_EVERY=SAVE_EVERY
+        self.USE_INT_STATES=USE_INT_STATES
 
         self.batch_states=[]
         self.batch_actions=[]
@@ -105,13 +116,13 @@ class run_training():
         self.model_critic = c5ppo.build_critic_network(input_dims=self.STATE_DIMS,learning_rate=self.learning_rate)
         self.tensor_board = TensorBoard(log_dir='./logs')
 
-
+        self.save_models('init')
     
-    def lr_scheduler(epoch, lr):
+    def lr_scheduler(self,epoch, lr):
         decay_rate = 0.85
         decay_step = 1
         if epoch % decay_step == 0 and epoch:
-            return lr * pow(decay_rate, np.floor(epoch / decay_step))
+            return lr * np.power(decay_rate, np.floor(epoch / decay_step))
         return lr       
 
     def save_models(self,name):
@@ -122,8 +133,6 @@ class run_training():
 
 
     def generate_batch(self):
-
-        self.save_models('init')
 
         #reset batch states to be empty
         self.batch_states=[]
@@ -148,8 +157,10 @@ class run_training():
             while not done:
                 observation = np.copy(c5env.states[c5env.current_player])
                 int_obs =  np.copy(c5env.int_states[c5env.current_player])
-                state_input = observation[np.newaxis,:]
-
+                if not self.USE_INT_STATES:
+                    state_input = observation[np.newaxis,:]
+                else:
+                    state_input = int_obs[np.newaxis,:]
                 if self.DEBUG:
                     c5utils.print_intstate(int_obs,c5env.current_player)
                     c5utils.print_binstate(observation,c5env.current_player)               

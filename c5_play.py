@@ -34,6 +34,15 @@ parser.add_argument('-rb', action='store_false',
                     default=True,
                     dest='random_bid',
                     help='Turn off random bidding')
+parser.add_argument('-intstate', action='store_true',
+                    default=False,
+                    dest='intstate',
+                    help='Train with 42 dimensional integer states instead of default 504 dimensional binary states')
+parser.add_argument('-state_dims', action='store',
+                    type=int,
+                    default=504,
+                    dest='state_dimentions',
+                    help='Input state dimensions for NN - set to 42 if using -intstate option.')
 
 
 class random_play():
@@ -78,7 +87,7 @@ class run_simulations():
         load players policy's from input files, etc....  Program will keep meaningful stats in order 
         to be able to tell if networks are improving.  
     """
-    def __init__(self,DEBUG=True,TOTAL_GAMES=10,policy_def={0:"random",1:"random"},allow_random_bidding=True):
+    def __init__(self,DEBUG=True,TOTAL_GAMES=10,policy_def={0:"random",1:"random"},allow_random_bidding=True,STATE_DIMS=504,USE_INT_STATES=False):
 
         # parameters
         self.DEBUG = DEBUG
@@ -86,12 +95,13 @@ class run_simulations():
         self.policy_def=policy_def
         self.player_policy=[None,None]
         self.nn_policy=[None,None]
-        self.STATE_DIMS = 504
+        self.STATE_DIMS = STATE_DIMS
         self.N_ACTIONS = 64
         self.winning_score=31
         self.allow_random_bidding=allow_random_bidding
         self.dummy_val=1.0
         self.env=catch5_env.catch5()
+        self.USE_INT_STATES=USE_INT_STATES
 
         
         #stats and counters
@@ -138,7 +148,12 @@ class run_simulations():
 
                 while not done:
                     observation = self.env.states[self.env.current_player]
-                    state_input = observation[np.newaxis,:]
+                    int_obs =  np.copy(c5env.int_states[c5env.current_player])
+                    if not self.USE_INT_STATES:
+                        state_input = observation[np.newaxis,:]
+                    else:
+                        state_input = int_obs[np.newaxis,:]
+
                     if self.DEBUG:
                         c5utils.print_binstate(observation,self.env.current_player)
 
@@ -239,7 +254,7 @@ if __name__ == "__main__":
     print("Allow random players to bid:",args.random_bid)
     
     sim=run_simulations(policy_def={0:args.policy1,1:args.policy2},allow_random_bidding=args.random_bid,
-                        DEBUG=args.debug,TOTAL_GAMES=args.total_games)
+                        DEBUG=args.debug,TOTAL_GAMES=args.total_games,USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims)
     sim.set_policies()
     sim.play_games()
 
