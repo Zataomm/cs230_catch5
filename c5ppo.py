@@ -66,13 +66,11 @@ def build_actor_network(input_dims,output_dims,learning_rate,clipping_val,entrop
     # Classification block
     dense1 = Dense(512, activation=LeakyReLU(alpha=0.1), name='fc1',
                    kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(state_input)
-    dense2 = Dense(512, activation=LeakyReLU(alpha=0.1), name='fc2',
+    dense2 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc3',
                    kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense1)
-    dense3 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc3',
-                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense2)
-    dense4 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc4',
-                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense3)  
-    pred_probs = Dense(output_dims, activation='softmax', name='actor_predictions')(dense4)
+    dense3 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc4',
+                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense2)  
+    pred_probs = Dense(output_dims, activation='softmax', name='actor_predictions')(dense3)
     
     actor = Model(inputs=[state_input,oldpolicy_probs,advantages],outputs=[pred_probs])
     actor.compile(optimizer=Adam(lr=learning_rate), loss=[ppo_loss(oldpolicy_probs=oldpolicy_probs,advantages=advantages,
@@ -90,13 +88,11 @@ def build_critic_network(input_dims,learning_rate):
     # Classification block
     dense1 = Dense(512, activation=LeakyReLU(alpha=0.1), name='fc1',
                    kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(state_input)
-    dense2 = Dense(512, activation=LeakyReLU(alpha=0.1), name='fc2',
+    dense2 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc3',
                    kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense1)
-    dense3 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc3',
-                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense2)
-    dense4 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc4',
-                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense3)  
-    pred_value = Dense(1, activation='tanh',name='critic_values')(dense4)
+    dense3 = Dense(256, activation=LeakyReLU(alpha=0.1), name='fc4',
+                   kernel_initializer='he_uniform',bias_initializer=initializers.Constant(0.01))(dense2)  
+    pred_value = Dense(1, activation='tanh',name='critic_values')(dense3)
 
     
     critic = Model(inputs=[state_input], outputs=[pred_value])
