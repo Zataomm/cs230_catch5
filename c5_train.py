@@ -76,7 +76,7 @@ parser.add_argument('-intstate', action='store_true',
 parser.add_argument('-state_dims', action='store',
                     type=int,
                     default=504,
-                    dest='state_dimentions',
+                    dest='state_dims',
                     help='Input state dimensions for NN - set to 42 if using -intstate option.')
 
 class run_training():
@@ -84,7 +84,7 @@ class run_training():
     """
     def __init__(self,DEBUG=False,CLIP_VAL=0.2,CRITIC_DIS=0.5,ENTROPY_BETA=0.01,GAMMA=0.99,
                  LMBDA=0.95,LR=0.00005,BATCH_SIZE=8,EPOCHS=5,TOTAL_EPISODES=32,STATE_DIMS=504,
-                 N_ACTIONS=64,ITERATIONS=1000001,SAVE_EVERY=50,USE_INT_STATES=false):
+                 N_ACTIONS=64,ITERATIONS=1000001,SAVE_EVERY=50,USE_INT_STATES=False):
 
         #parameters
         self.clipping_val = CLIP_VAL
@@ -172,8 +172,11 @@ class run_training():
                 q_value = self.model_critic.predict([state_input], steps=1)
                 action = np.random.choice(self.N_ACTIONS, p=legal_action_dist[:])
                 action_onehot = np.zeros(self.N_ACTIONS)
-                action_onehot[action] = 1           
-                newtraj=[observation,action,action_onehot,legal_action_dist,np.squeeze(q_value),0,False]
+                action_onehot[action] = 1
+                if not self.USE_INT_STATES:
+                    newtraj=[observation,action,action_onehot,legal_action_dist,np.squeeze(q_value),0,False]
+                else:
+                    newtraj=[int_obs,action,action_onehot,legal_action_dist,np.squeeze(q_value),0,False]
                 trajectories[c5env.current_player].append(newtraj)
                 if self.DEBUG:
                     c5utils.print_action(action)
@@ -322,7 +325,8 @@ if __name__ == "__main__":
         
 
     train = run_training(EPOCHS=args.epochs,BATCH_SIZE=args.batch_size,DEBUG=args.debug,ENTROPY_BETA=args.entropy_beta,
-                         LR=args.learning_rate,TOTAL_EPISODES=args.episodes,SAVE_EVERY=args.save_every)
+                         LR=args.learning_rate,TOTAL_EPISODES=args.episodes,SAVE_EVERY=args.save_every,
+                         USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims)
 
     actor_loss = []
     critic_loss= []

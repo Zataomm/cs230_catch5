@@ -41,7 +41,7 @@ parser.add_argument('-intstate', action='store_true',
 parser.add_argument('-state_dims', action='store',
                     type=int,
                     default=504,
-                    dest='state_dimentions',
+                    dest='state_dims',
                     help='Input state dimensions for NN - set to 42 if using -intstate option.')
 
 
@@ -148,7 +148,7 @@ class run_simulations():
 
                 while not done:
                     observation = self.env.states[self.env.current_player]
-                    int_obs =  np.copy(c5env.int_states[c5env.current_player])
+                    int_obs =  np.copy(self.env.int_states[self.env.current_player])
                     if not self.USE_INT_STATES:
                         state_input = observation[np.newaxis,:]
                     else:
