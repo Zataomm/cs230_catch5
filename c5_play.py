@@ -86,11 +86,13 @@ class run_simulations():
         self.policy_def=policy_def
         self.player_policy=[None,None]
         self.nn_policy=[None,None]
-        self.STATE_DIMS = (1,504)
+        self.STATE_DIMS = 504
         self.N_ACTIONS = 64
         self.winning_score=31
         self.allow_random_bidding=allow_random_bidding
+        self.dummy_val=1.0
         self.env=catch5_env.catch5()
+
         
         #stats and counters
         self.score=[0,0]
@@ -114,8 +116,8 @@ class run_simulations():
                 self.player_policy[i]=random_play(random_bidding=self.allow_random_bidding)
             else: # policy is defined by network weights
                 print("Loading weights from:",self.policy_def[i],"into network for player",i)
-                _,self.nn_policy[i]=c5ppo.build_actor_network(input_dims=self.STATE_DIMS,
-                                                                           output_dims=self.N_ACTIONS)
+                _,self.nn_policy[i]=c5ppo.build_actor_network(input_dims=self.STATE_DIMS,output_dims=self.N_ACTIONS,
+                                    learning_rate=self.dummy_val,clipping_val=self.dummy_val,entropy_beta=self.dummy_val)
                 self.nn_policy[i].load_weights(self.policy_def[i])
                 self.player_policy[i]=policy_play(env=self.env,policy=self.nn_policy[i],nactions=self.N_ACTIONS)
 

@@ -7,13 +7,6 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import initializers
 from tensorflow.keras import backend as K
 
-n_actions=64
-clipping_val = 0.2
-critic_discount = 0.5
-entropy_beta = 0.01
-gamma = 0.99
-lmbda = 0.95
-learning_rate = 0.0001
 
 #turn off warnings and above 
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
@@ -21,7 +14,7 @@ logging.getLogger("tensorflow").setLevel(logging.ERROR)
 tf.compat.v1.disable_eager_execution()
 
 
-def get_simple_advantages(values, rewards):
+def get_simple_advantages(values, rewards,gamma):
     """ Classical GP advantages """
     returns = []
     adv=[]
@@ -33,7 +26,7 @@ def get_simple_advantages(values, rewards):
         adv.append(returns[i] - values[i])    
     return returns,adv
         
-def get_advantages(values, rewards):
+def get_advantages(values, rewards, gamma, lmbda):
     """ We can cheat on calculating the advatages since we have a fixed episode length every time
     """
     returns = []
@@ -48,8 +41,9 @@ def get_advantages(values, rewards):
     return returns, adv
 
 
-def ppo_loss(oldpolicy_probs, advantages):
+def ppo_loss(oldpolicy_probs, advantages,clipping_val,entropy_beta):
     def loss(y_true, y_pred):
+        
         newpolicy_probs = K.sum(y_true * y_pred,axis=1)
         old_probs = K.sum(y_true * oldpolicy_probs,axis=1)
         
@@ -64,8 +58,8 @@ def ppo_loss(oldpolicy_probs, advantages):
 
 
 
-def build_actor_network(input_dims,output_dims):
-    state_input = Input(shape=504)
+def build_actor_network(input_dims,output_dims,learning_rate,clipping_val,entropy_beta):
+    state_input = Input(shape=input_dims)
     oldpolicy_probs = Input(shape=output_dims) 
     advantages = Input(shape=1)
 
@@ -81,7 +75,8 @@ def build_actor_network(input_dims,output_dims):
     pred_probs = Dense(output_dims, activation='softmax', name='actor_predictions')(dense4)
     
     actor = Model(inputs=[state_input,oldpolicy_probs,advantages],outputs=[pred_probs])
-    actor.compile(optimizer=Adam(lr=learning_rate), loss=[ppo_loss(oldpolicy_probs=oldpolicy_probs,advantages=advantages)])
+    actor.compile(optimizer=Adam(lr=learning_rate), loss=[ppo_loss(oldpolicy_probs=oldpolicy_probs,advantages=advantages,
+                                                                   clipping_val=clipping_val,entropy_beta=entropy_beta)])
     actor.summary()
     
     policy = Model(inputs=[state_input],outputs=[pred_probs])
@@ -89,8 +84,8 @@ def build_actor_network(input_dims,output_dims):
     return actor,policy
 
 
-def build_critic_network(input_dims):
-    state_input = Input(shape=504)
+def build_critic_network(input_dims,learning_rate):
+    state_input = Input(shape=input_dims)
 
     # Classification block
     dense1 = Dense(512, activation=LeakyReLU(alpha=0.1), name='fc1',
