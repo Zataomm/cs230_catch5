@@ -34,6 +34,10 @@ parser.add_argument('-rb', action='store_false',
                     default=True,
                     dest='random_bid',
                     help='Turn off random bidding')
+parser.add_argument('-rs', action='store_false',
+                    default=True,
+                    dest='random_suit',
+                    help='Turn off random suit selection - random player will select suit of highest number in hand.')
 parser.add_argument('-intstate', action='store_true',
                     default=False,
                     dest='intstate',
@@ -48,11 +52,12 @@ parser.add_argument('-state_dims', action='store',
 class random_play():
     """ Implements random play for players in tournament."""
 
-    def __init__(self,random_bidding=True):
+    def __init__(self,random_bidding=True,random_suit=True):
 
         self.random_bidding=random_bidding
-
-    def play(self,state_input,legal_actions):
+        self.random_suit=random_suit
+        
+    def play(self,state_input,int_state,legal_actions):
         action=c5utils.random_action(legal_actions)
         if not self.random_bidding:
             if action <8:
@@ -60,6 +65,17 @@ class random_play():
                     action=0
                 else:
                     action=1  # min-bid
+        if not self.random_suit:
+            if action < 12 and action >=8: #suit selection
+                cards = int_state[9:18]
+                high_suit=-1
+                num_in_suit=-1
+                for i in range(4):
+                     ns,_= c5utils.numberSuit(cards,i)
+                     if ns > num_in_suit:
+                         num_in_suit=ns
+                         high_suit=i
+                action = 8+high_suit
         return action
 
 
@@ -73,7 +89,7 @@ class policy_play():
         self.nactions=nactions
         self.env = env
         
-    def play(self,state_input,legal_actions):
+    def play(self,state_input,int_state,legal_actions):
         action_dist = self.policy.predict([state_input], steps=1)
         legal_action_dist=self.env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
         if self.pick_max:
@@ -87,7 +103,8 @@ class run_simulations():
         load players policy's from input files, etc....  Program will keep meaningful stats in order 
         to be able to tell if networks are improving.  
     """
-    def __init__(self,DEBUG=True,TOTAL_GAMES=10,policy_def={0:"random",1:"random"},allow_random_bidding=True,STATE_DIMS=504,USE_INT_STATES=False):
+    def __init__(self,DEBUG=True,TOTAL_GAMES=10,policy_def={0:"random",1:"random"},allow_random_bidding=True,
+                 allow_random_suit=True,STATE_DIMS=504,USE_INT_STATES=False):
 
         # parameters
         self.DEBUG = DEBUG
@@ -99,6 +116,7 @@ class run_simulations():
         self.N_ACTIONS = 64
         self.winning_score=31
         self.allow_random_bidding=allow_random_bidding
+        self.allow_random_suit=allow_random_suit
         self.dummy_val=1.0
         self.env=catch5_env.catch5()
         self.USE_INT_STATES=USE_INT_STATES
@@ -123,7 +141,7 @@ class run_simulations():
         for i in range(2):
             if self.policy_def[i] == "random":
                 print("Setting team:",i,"to random.")
-                self.player_policy[i]=random_play(random_bidding=self.allow_random_bidding)
+                self.player_policy[i]=random_play(random_bidding=self.allow_random_bidding,random_suit=self.allow_random_suit)
             else: # policy is defined by network weights
                 print("Loading weights from:",self.policy_def[i],"into network for player",i)
                 _,self.nn_policy[i]=c5ppo.build_actor_network(input_dims=self.STATE_DIMS,output_dims=self.N_ACTIONS,
@@ -163,7 +181,7 @@ class run_simulations():
                         c5utils.print_actions(legal_actions)
 
                     # now get the next move - and update states depending on who is playing
-                    action=self.player_policy[self.env.current_player%2].play(state_input,legal_actions)
+                    action=self.player_policy[self.env.current_player%2].play(state_input,int_obs,legal_actions)
 
                                     
                     if self.DEBUG:
@@ -252,9 +270,10 @@ if __name__ == "__main__":
     print("Total games to play:",args.total_games)
     print("Debug flag:",args.debug)
     print("Allow random players to bid:",args.random_bid)
-    
+    print("Allow random players to select random suits:",args.random_suit)   
     sim=run_simulations(policy_def={0:args.policy1,1:args.policy2},allow_random_bidding=args.random_bid,
-                        DEBUG=args.debug,TOTAL_GAMES=args.total_games,USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims)
+                        allow_random_suit=args.random_suit,DEBUG=args.debug,TOTAL_GAMES=args.total_games,
+                        USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims)
     sim.set_policies()
     sim.play_games()
 
