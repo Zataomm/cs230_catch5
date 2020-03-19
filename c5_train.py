@@ -6,6 +6,7 @@ Created on Fri Feb  7 12:19:17 2020
 @author: jmonroe
 """
 import matplotlib.pyplot as plt
+from itertools import permutations 
 import argparse
 import numpy as np
 import catch5_env
@@ -60,7 +61,7 @@ parser.add_argument('-episodes', action='store',
                     type=int,
                     default=32,
                     dest='episodes',
-                    help='Number of full episodes to run for each training batch.(1 eps = 29 trjectories)')
+                    help='Number of full episodes to run for each training batch.(1 eps = 29 trajectories)')
 
 parser.add_argument('-save', action='store',
                     type=int,
@@ -102,6 +103,7 @@ class run_training():
         self.SAVE_EVERY=SAVE_EVERY
         self.USE_INT_STATES=USE_INT_STATES
 
+        self.suit_perms=list(permutations(range(4))) 
         self.batch_states=[]
         self.batch_actions=[]
         self.batch_actions_onehot=[]
@@ -124,7 +126,8 @@ class run_training():
         if epoch % decay_step == 0 and epoch:
             return lr * np.power(decay_rate, np.floor(epoch / decay_step))
         return lr       
-
+                        
+    
     def save_models(self,name):
         print("Saving network weights with file extension:",name)
         self.model_actor.save_weights('models/model_actor_{}.hdf5'.format(name))
@@ -257,6 +260,53 @@ class run_training():
             c5env.reset()    
 
 
+    def augment_data(self):
+        """ For every given state we can generate 23 (4!-1) new states for training - which will ensure the 
+            more diverse data for training to help with suit selection and bidding etc...."""
+
+        rand_perms=self.suit_perms
+        self.batch_actions=len(rand_perms)*self.batch_actions
+        self.batch_reward=len(rand_perms)*self.batch_reward
+        self.batch_value=len(rand_perms)*self.batch_value
+        self.batch_returns=len(rand_perms)*self.batch_returns
+        self.batch_advantages=len(rand_perms)*self.batch_advantages    
+        new_bstates=[]
+        new_baoh=[]
+        new_bprobs=[]
+        for p in rand_perms:
+            #print(p)
+            for indx in range(len(self.batch_states)):
+                s=self.batch_states[indx]
+                aoh=self.batch_actions_onehot[indx]
+                prob=self.batch_prob[indx]
+                new_s=np.copy(s)
+                new_aoh=np.copy(aoh)
+                new_prob=np.copy(prob)
+                #permute the suits
+                for i in range(4):
+                    new_s[32+i]=s[32+p[i]]
+                    new_aoh[8+i] = aoh[8+p[i]]
+                    new_prob[8+i] = prob[8+p[i]]
+                #permute aoh and probs
+                for k in range(4):
+                    new_aoh[12+13*k:12+13*(k+1)]=aoh[12+13*p[k]:12+13*(p[k]+1)]
+                    new_prob[12+13*k:12+13*(k+1)]=prob[12+13*p[k]:12+13*(p[k]+1)]
+                #permute the 9 decks in state suits as well
+                for j in range(9):
+                    for k in range(4):
+                        new_s[36+52*j+13*k:36+52*j+13*(k+1)]=s[36+52*j+13*p[k]:36+52*j+13*(p[k]+1)]
+                #for i in range(4):
+                #    print(p)
+                #    c5utils.print_binstate(s,i)
+                #    c5utils.print_binstate(new_s,i)
+                new_bstates.append(new_s)
+                new_baoh.append(new_aoh)
+                new_bprobs.append(new_prob)
+        #print("==================================",len(new_bstates),len(new_bprobs),len(new_baoh))
+        self.batch_states=new_bstates
+        self.batch_actions_onehot=new_baoh
+        self.batch_prob = new_bprobs
+        
     def reformat_batch(self):
         # now we have all of our data - format and train
         self.batch_prob=np.asarray(self.batch_prob)
@@ -278,7 +328,7 @@ class run_training():
         self.batch_returns=np.asarray(self.batch_returns)
         self.batch_returns=np.reshape(self.batch_returns, newshape=(-1))
 
-        if self.DEBUG:
+        if True:#self.DEBUG:
             print("Shapes going into training:")
             print("\t batch_states:",self.batch_states.shape)
             print("\t batch_prob:",self.batch_prob.shape)
@@ -290,7 +340,8 @@ class run_training():
         
             
     def compute_grads(self,itrs):
-   
+
+        self.augment_data()
         self.reformat_batch()
 
         if self.DEBUG:
