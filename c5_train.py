@@ -80,12 +80,18 @@ parser.add_argument('-state_dims', action='store',
                     dest='state_dims',
                     help='Input state dimensions for NN - set to 42 if using -intstate option.')
 
+parser.add_argument('-numperms', action='store',
+                    type=int,
+                    default=-1,
+                    dest='num_perms',
+                    help='Number of permutations to augment the data from the current trajectories.')
+
 class run_training():
     """ Class used to train networks to learn how to play the game catch5.  
     """
     def __init__(self,DEBUG=False,CLIP_VAL=0.2,CRITIC_DIS=0.5,ENTROPY_BETA=0.01,GAMMA=0.99,
                  LMBDA=0.95,LR=0.00005,BATCH_SIZE=8,EPOCHS=5,TOTAL_EPISODES=32,STATE_DIMS=504,
-                 N_ACTIONS=64,ITERATIONS=1000001,SAVE_EVERY=50,USE_INT_STATES=False):
+                 N_ACTIONS=64,ITERATIONS=1000001,SAVE_EVERY=50,USE_INT_STATES=False,NUM_PERMS=-1):
 
         #parameters
         self.clipping_val = CLIP_VAL
@@ -102,6 +108,7 @@ class run_training():
         self.N_ACTIONS = N_ACTIONS
         self.SAVE_EVERY=SAVE_EVERY
         self.USE_INT_STATES=USE_INT_STATES
+        self.num_perms=NUM_PERMS
 
         self.suit_perms=list(permutations(range(4))) 
         self.batch_states=[]
@@ -264,7 +271,14 @@ class run_training():
         """ For every given state we can generate 23 (4!-1) new states for training - which will ensure the 
             more diverse data for training to help with suit selection and bidding etc...."""
 
-        rand_perms=self.suit_perms
+        rand_perms=[(0,1,2,3)]
+        if self.num_perms==-1:
+            rand_perms=self.suit_perms
+        else:
+            for i in range(self.num_perms):
+                next_perm=np.random.randint(1,len(self.suit_perms))
+                rand_perms.append(self.suit_perms[next_perm])
+        
         self.batch_actions=len(rand_perms)*self.batch_actions
         self.batch_reward=len(rand_perms)*self.batch_reward
         self.batch_value=len(rand_perms)*self.batch_value
@@ -302,7 +316,6 @@ class run_training():
                 new_bstates.append(new_s)
                 new_baoh.append(new_aoh)
                 new_bprobs.append(new_prob)
-        #print("==================================",len(new_bstates),len(new_bprobs),len(new_baoh))
         self.batch_states=new_bstates
         self.batch_actions_onehot=new_baoh
         self.batch_prob = new_bprobs
@@ -377,7 +390,7 @@ if __name__ == "__main__":
 
     train = run_training(EPOCHS=args.epochs,BATCH_SIZE=args.batch_size,DEBUG=args.debug,ENTROPY_BETA=args.entropy_beta,
                          LR=args.learning_rate,TOTAL_EPISODES=args.episodes,SAVE_EVERY=args.save_every,
-                         USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims)
+                         USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,NUM_PERMS=args.num_perms)
 
     actor_loss = []
     critic_loss= []
