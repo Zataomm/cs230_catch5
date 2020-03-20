@@ -85,13 +85,18 @@ parser.add_argument('-numperms', action='store',
                     default=-1,
                     dest='num_perms',
                     help='Number of permutations to augment the data from the current trajectories.')
+parser.add_argument('-activation', action='store',
+                    type=str,
+                    default="tanh",
+                    dest='act_type',
+                    help='Default is tanh, use \'leaky\' for Leay ReLU activations.')
 
 class run_training():
     """ Class used to train networks to learn how to play the game catch5.  
     """
     def __init__(self,DEBUG=False,CLIP_VAL=0.2,CRITIC_DIS=0.5,ENTROPY_BETA=0.01,GAMMA=0.99,
                  LMBDA=0.95,LR=0.00005,BATCH_SIZE=8,EPOCHS=5,TOTAL_EPISODES=32,STATE_DIMS=504,
-                 N_ACTIONS=64,ITERATIONS=1000001,SAVE_EVERY=50,USE_INT_STATES=False,NUM_PERMS=-1):
+                 N_ACTIONS=64,ITERATIONS=1000001,SAVE_EVERY=50,USE_INT_STATES=False,NUM_PERMS=-1,ACT_TYPE="tanh"):
 
         #parameters
         self.clipping_val = CLIP_VAL
@@ -109,6 +114,7 @@ class run_training():
         self.SAVE_EVERY=SAVE_EVERY
         self.USE_INT_STATES=USE_INT_STATES
         self.num_perms=NUM_PERMS
+        self.act_type=ACT_TYPE
 
         self.suit_perms=list(permutations(range(4))) 
         self.batch_states=[]
@@ -121,8 +127,8 @@ class run_training():
         self.batch_advantages=[]
 
         self.model_actor,self.policy = c5ppo.build_actor_network(input_dims=self.STATE_DIMS,output_dims=self.N_ACTIONS,
-                            learning_rate=self.learning_rate,clipping_val=self.clipping_val,entropy_beta=self.entropy_beta)
-        self.model_critic = c5ppo.build_critic_network(input_dims=self.STATE_DIMS,learning_rate=self.learning_rate)
+                                                                 learning_rate=self.learning_rate,clipping_val=self.clipping_val,entropy_beta=self.entropy_beta,act_type=self.act_type)
+        self.model_critic = c5ppo.build_critic_network(input_dims=self.STATE_DIMS,learning_rate=self.learning_rate,act_type=self.act_type)
         self.tensor_board = TensorBoard(log_dir='./logs')
 
         self.save_models('init')
@@ -288,7 +294,7 @@ class run_training():
         new_baoh=[]
         new_bprobs=[]
         for p in rand_perms:
-            #print(p)
+            print(p)
             for indx in range(len(self.batch_states)):
                 s=self.batch_states[indx]
                 aoh=self.batch_actions_onehot[indx]
@@ -305,14 +311,22 @@ class run_training():
                 for k in range(4):
                     new_aoh[12+13*k:12+13*(k+1)]=aoh[12+13*p[k]:12+13*(p[k]+1)]
                     new_prob[12+13*k:12+13*(k+1)]=prob[12+13*p[k]:12+13*(p[k]+1)]
+                if self.DEBUG:
+                    print("\n aoh ====================== \n",aoh)
+                    print("\n new aoh ====================== \n",new_aoh)
+                    print("\n prob ====================== \n",prob)
+                    print("\n new prob ====================== \n",new_prob)
                 #permute the 9 decks in state suits as well
                 for j in range(9):
                     for k in range(4):
                         new_s[36+52*j+13*k:36+52*j+13*(k+1)]=s[36+52*j+13*p[k]:36+52*j+13*(p[k]+1)]
-                #for i in range(4):
-                #    print(p)
-                #    c5utils.print_binstate(s,i)
-                #    c5utils.print_binstate(new_s,i)
+                if self.DEBUG:
+                    for i in range(4):
+                        print(p)
+                        print("New state      ====================")
+                        c5utils.print_binstate(new_s,i)
+                        print("Original state ====================")
+                        c5utils.print_binstate(s,i)
                 new_bstates.append(new_s)
                 new_baoh.append(new_aoh)
                 new_bprobs.append(new_prob)
@@ -390,7 +404,7 @@ if __name__ == "__main__":
 
     train = run_training(EPOCHS=args.epochs,BATCH_SIZE=args.batch_size,DEBUG=args.debug,ENTROPY_BETA=args.entropy_beta,
                          LR=args.learning_rate,TOTAL_EPISODES=args.episodes,SAVE_EVERY=args.save_every,
-                         USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,NUM_PERMS=args.num_perms)
+                         USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,NUM_PERMS=args.num_perms,ACT_TYPE=args.act_type)
 
     actor_loss = []
     critic_loss= []

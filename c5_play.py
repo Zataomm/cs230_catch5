@@ -47,7 +47,11 @@ parser.add_argument('-state_dims', action='store',
                     default=504,
                     dest='state_dims',
                     help='Input state dimensions for NN - set to 42 if using -intstate option.')
-
+parser.add_argument('-activation', action='store',
+                    type=str,
+                    default="tanh",
+                    dest='act_type',
+                    help='Default is tanh, use \'leaky\' for Leay ReLU activations.')
 
 class random_play():
     """ Implements random play for players in tournament."""
@@ -104,7 +108,7 @@ class run_simulations():
         to be able to tell if networks are improving.  
     """
     def __init__(self,DEBUG=True,TOTAL_GAMES=10,policy_def={0:"random",1:"random"},allow_random_bidding=True,
-                 allow_random_suit=True,STATE_DIMS=504,USE_INT_STATES=False):
+                 allow_random_suit=True,STATE_DIMS=504,USE_INT_STATES=False,ACT_TYPE="tanh"):
 
         # parameters
         self.DEBUG = DEBUG
@@ -120,6 +124,7 @@ class run_simulations():
         self.dummy_val=1.0
         self.env=catch5_env.catch5()
         self.USE_INT_STATES=USE_INT_STATES
+        self.act_type=ACT_TYPE
 
         
         #stats and counters
@@ -145,7 +150,7 @@ class run_simulations():
             else: # policy is defined by network weights
                 print("Loading weights from:",self.policy_def[i],"into network for player",i)
                 _,self.nn_policy[i]=c5ppo.build_actor_network(input_dims=self.STATE_DIMS,output_dims=self.N_ACTIONS,
-                                    learning_rate=self.dummy_val,clipping_val=self.dummy_val,entropy_beta=self.dummy_val)
+                                                              learning_rate=self.dummy_val,clipping_val=self.dummy_val,entropy_beta=self.dummy_val,act_type=self.act_type)
                 self.nn_policy[i].load_weights(self.policy_def[i])
                 self.player_policy[i]=policy_play(env=self.env,policy=self.nn_policy[i],nactions=self.N_ACTIONS)
 
@@ -273,7 +278,7 @@ if __name__ == "__main__":
     print("Allow random players to select random suits:",args.random_suit)   
     sim=run_simulations(policy_def={0:args.policy1,1:args.policy2},allow_random_bidding=args.random_bid,
                         allow_random_suit=args.random_suit,DEBUG=args.debug,TOTAL_GAMES=args.total_games,
-                        USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims)
+                        USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,ACT_TYPE=args.act_type)
     sim.set_policies()
     sim.play_games()
 
