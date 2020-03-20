@@ -88,11 +88,21 @@ class catch5():
         ones = np.ones((8))
         if self.int_states[self.current_player][0]==0:  # still in bidding phase - first 8 are for bidding
             actions[0:8] = ones[0:8]
-            bid_sum=0
+            max_bid=-1
+            num_bids = 0
             for i in range(1,4):
-                bid_sum += self.int_states[(self.current_player+i)%4][0]
-            if bid_sum ==3: # all players passed - then dealer must bid - pass is not allowed
-                actions[0]=0
+                if self.int_states[(self.current_player+i)%4][0] > 0:
+                    num_bids += 1
+                if self.int_states[(self.current_player+i)%4][0] > max_bid:
+                    max_bid = int(self.int_states[(self.current_player+i)%4][0])
+            if num_bids == 3: # dealer is bidding - only needs to equal highest - and can pass if no bidders
+                if max_bid == 1:
+                    actions[0]=0
+                for i in range(1,max_bid-2):
+                    actions[i]=0
+            else: #others must beat highest bidder or pass
+                for i in range(1,max_bid-1):
+                    actions[i]=0
         elif self.int_states[self.current_player][4] == 0:  #winning bidder is choosing a suit
             actions[8:12] = ones[0:4]
         else:  # we are playing so actions have to follow the "follow lead suit rule"
@@ -187,9 +197,7 @@ class catch5():
     def eval_rewards(self):
         """ At end of game - so we need to compute the value of the 
             tricks won in each hand and allocate points accordingly - to 
-            include penalty if the teams bid was not reached. We will also 
-            set rewards to rewards/9 so that the rewards will be between 
-            -1 and +1 and be compatible with the output of tanh function.
+            include penalty if the teams bid was not reached. 
         """
         assert(len(self.trick_info)==6)
         scoop_suit=self.int_states[self.current_player][4]-1
