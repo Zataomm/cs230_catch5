@@ -197,7 +197,7 @@ class catch5():
     def eval_rewards(self):
         """ At end of game - so we need to compute the value of the 
             tricks won in each hand and allocate points accordingly - to 
-            include penalty if the teams bid was not reached. 
+            include penalty if the teams bid was not reached, and 3x bonus if bidding 9 and making it.
         """
         assert(len(self.trick_info)==6)
         scoop_suit=self.int_states[self.current_player][4]-1
@@ -211,6 +211,8 @@ class catch5():
         self.game_points[1]=self.game_points[3]=(self.game_points[1]+self.game_points[3])
         if self.best_bid > self.game_points[self.bidder]:
             self.penalty[self.bidder] = self.penalty[(self.bidder+2)%4] =  -self.best_bid
+        elif self.best_bid == 9 and self.game_points[self.bidder] == 9:
+            self.game_points[self.bidder] = self.game_points[(self.bidder+2)%4] = 27
         for i in range(4):
             if self.penalty[i]<0:
                 self.rewards[i]=self.penalty[i]
