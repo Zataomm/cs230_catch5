@@ -295,7 +295,6 @@ class run_training():
         new_baoh=[]
         new_bprobs=[]
         for p in rand_perms:
-            print(p)
             for indx in range(len(self.batch_states)):
                 s=self.batch_states[indx]
                 aoh=self.batch_actions_onehot[indx]
@@ -356,7 +355,7 @@ class run_training():
         self.batch_returns=np.asarray(self.batch_returns)
         self.batch_returns=np.reshape(self.batch_returns, newshape=(-1))
 
-        if True:#self.DEBUG:
+        if self.DEBUG:
             print("Shapes going into training:")
             print("\t batch_states:",self.batch_states.shape)
             print("\t batch_prob:",self.batch_prob.shape)
