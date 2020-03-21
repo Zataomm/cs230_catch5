@@ -69,15 +69,18 @@ class catch5():
 
     def adjust_probs(self,probs,legal_moves):
         """ Take in softmax output and adjust based on legal moves.
+            Return adjust_probability dist, a total mass of legal vs all probs
         """
         new_probs = np.multiply(probs,legal_moves)
+        total_moves = int(np.sum(legal_moves))
+        total_zerop_moves=total_moves-int(np.sum(np.subtract(legal_moves,np.ceil(new_probs))))
         norm = np.sum(new_probs)
         if (norm>0):
             new_probs = new_probs/norm
         else: # choose random legal action
             num_moves = np.sum(legal_moves)
             new_probs = legal_moves/num_moves
-        return new_probs
+        return new_probs,norm,total_moves,total_zerop_moves
     
     def legal_actions(self):
         """ Determine legal actions for the given input state.
@@ -212,7 +215,7 @@ class catch5():
         if self.best_bid > self.game_points[self.bidder]:
             self.penalty[self.bidder] = self.penalty[(self.bidder+2)%4] =  -self.best_bid
         elif self.best_bid == 9 and self.game_points[self.bidder] == 9:
-            self.game_points[self.bidder] = self.game_points[(self.bidder+2)%4] = 27
+            self.game_points[self.bidder] = self.game_points[(self.bidder+2)%4] = 18
         for i in range(4):
             if self.penalty[i]<0:
                 self.rewards[i]=self.penalty[i]

@@ -38,6 +38,10 @@ parser.add_argument('-rs', action='store_false',
                     default=True,
                     dest='random_suit',
                     help='Turn off random suit selection - random player will select suit of highest number in hand.')
+parser.add_argument('-pm', action='store_false',
+                    default=True,
+                    dest='pick_max',
+                    help='Turn off selection of max probability and select according to the actual distrubution.')
 parser.add_argument('-intstate', action='store_true',
                     default=False,
                     dest='intstate',
@@ -95,7 +99,7 @@ class policy_play():
         
     def play(self,state_input,int_state,legal_actions):
         action_dist = self.policy.predict([state_input], steps=1)
-        legal_action_dist=self.env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
+        legal_action_dist,_,_,_=self.env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
         if self.pick_max:
             action = np.argmax(legal_action_dist[ :])
         else:
@@ -108,7 +112,7 @@ class run_simulations():
         to be able to tell if networks are improving.  
     """
     def __init__(self,DEBUG=True,TOTAL_GAMES=10,policy_def={0:"random",1:"random"},allow_random_bidding=True,
-                 allow_random_suit=True,STATE_DIMS=504,USE_INT_STATES=False,ACT_TYPE="tanh"):
+                 allow_random_suit=True,STATE_DIMS=504,USE_INT_STATES=False,ACT_TYPE="tanh",PICK_MAX=True):
 
         # parameters
         self.DEBUG = DEBUG
@@ -125,6 +129,7 @@ class run_simulations():
         self.env=catch5_env.catch5()
         self.USE_INT_STATES=USE_INT_STATES
         self.act_type=ACT_TYPE
+        self.pick_max=PICK_MAX
 
         
         #stats and counters
@@ -152,7 +157,7 @@ class run_simulations():
                 _,self.nn_policy[i]=c5ppo.build_actor_network(input_dims=self.STATE_DIMS,output_dims=self.N_ACTIONS,
                                                               learning_rate=self.dummy_val,clipping_val=self.dummy_val,entropy_beta=self.dummy_val,act_type=self.act_type)
                 self.nn_policy[i].load_weights(self.policy_def[i])
-                self.player_policy[i]=policy_play(env=self.env,policy=self.nn_policy[i],nactions=self.N_ACTIONS)
+                self.player_policy[i]=policy_play(env=self.env,policy=self.nn_policy[i],nactions=self.N_ACTIONS,pick_max=self.pick_max)
 
     def play_games(self):
         game_num=0

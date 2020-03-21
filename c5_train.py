@@ -126,19 +126,18 @@ class run_training():
         self.batch_returns=[]
         self.batch_advantages=[]
 
+        self.mass_beta = 0.999
+        self.avg_mass = 0.0
+        self.avg_zerop = 0.0
+
+        self.reward_norm = 18.0 # should be max reward ....
+
         self.model_actor,self.policy = c5ppo.build_actor_network(input_dims=self.STATE_DIMS,output_dims=self.N_ACTIONS,
                                                                  learning_rate=self.learning_rate,clipping_val=self.clipping_val,entropy_beta=self.entropy_beta,act_type=self.act_type)
         self.model_critic = c5ppo.build_critic_network(input_dims=self.STATE_DIMS,learning_rate=self.learning_rate,act_type=self.act_type)
         self.tensor_board = TensorBoard(log_dir='./logs')
 
         self.save_models('init')
-    
-    def lr_scheduler(self,epoch, lr):
-        decay_rate = 0.85
-        decay_step = 1
-        if epoch % decay_step == 0 and epoch:
-            return lr * np.power(decay_rate, np.floor(epoch / decay_step))
-        return lr       
                         
     
     def save_models(self,name):
@@ -184,7 +183,9 @@ class run_training():
                 if self.DEBUG:
                     c5utils.print_actions(legal_actions)
                 action_dist = self.policy.predict([state_input], steps=1)
-                legal_action_dist=c5env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
+                legal_action_dist,pmass,num_moves,num_zerop_moves=c5env.adjust_probs(np.squeeze(action_dist,axis=0),legal_actions)
+                self.avg_mass = pmass + self.mass_beta*(self.avg_mass-pmass)
+                self.avg_zerop = num_zerop_moves+self.mass_beta*(self.avg_zerop-num_zerop_moves)
                 q_value = self.model_critic.predict([state_input], steps=1)
                 action = np.random.choice(self.N_ACTIONS, p=legal_action_dist[:])
                 action_onehot = np.zeros(self.N_ACTIONS)
@@ -206,7 +207,7 @@ class run_training():
                 observation = np.copy(c5env.states[i])
                 state_input = observation[np.newaxis,:]
                 q_value = 0
-                newtraj=[observation,-1,None,None,q_value,c5env.rewards[i]/9.0,True]
+                newtraj=[observation,-1,None,None,q_value,c5env.rewards[i]/self.reward_norm,True]
                 trajectories[i].append(newtraj)      
             if self.DEBUG:
                 for i in range(4):
@@ -417,6 +418,9 @@ if __name__ == "__main__":
         print(np.mean(np.asarray(a_hist.history['loss'])),np.mean(np.asarray(c_hist.history['loss'])))
         actor_loss =  actor_loss+[np.mean(np.asarray(a_hist.history['loss']))]
         critic_loss = critic_loss+[np.mean(np.asarray(c_hist.history['loss']))]
+        print("Average mass at iteration",i," = ",train.avg_mass)
+        print("Average zero probability moves at iteration",i," = ",train.avg_zerop)        
+        
         if args.plot:
             x_axis=range(i+1)
             plt.cla()
