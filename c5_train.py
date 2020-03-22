@@ -90,13 +90,19 @@ parser.add_argument('-activation', action='store',
                     default="tanh",
                     dest='act_type',
                     help='Default is tanh, use \'leaky\' for Leay ReLU activations.')
+parser.add_argument('-start_iteration', action='store',
+                    type=int,
+                    default=0,
+                    dest='start_iter',
+                    help='Load a set of weights at the start of training based on iteration number. There needs to be a set of weight files in the models directory with the appropriate iteration number. e.g. if iteration number is 1000, there should be a model_actor_1000.hdf5, model_critic_1000.hdf5 and a policy_1000.hdf5 in the models directory. Training will start from this file.')
+
 
 class run_training():
     """ Class used to train networks to learn how to play the game catch5.  
     """
     def __init__(self,DEBUG=False,CLIP_VAL=0.2,CRITIC_DIS=0.5,ENTROPY_BETA=0.01,GAMMA=0.99,
                  LMBDA=0.95,LR=0.00005,BATCH_SIZE=8,EPOCHS=5,TOTAL_EPISODES=32,STATE_DIMS=504,
-                 N_ACTIONS=64,ITERATIONS=1000001,SAVE_EVERY=50,USE_INT_STATES=False,NUM_PERMS=-1,ACT_TYPE="tanh"):
+                 N_ACTIONS=64,ITERATIONS=1000001,SAVE_EVERY=50,USE_INT_STATES=False,NUM_PERMS=-1,ACT_TYPE="tanh",START_ITER=0):
 
         #parameters
         self.clipping_val = CLIP_VAL
@@ -137,9 +143,22 @@ class run_training():
         self.model_critic = c5ppo.build_critic_network(input_dims=self.STATE_DIMS,learning_rate=self.learning_rate,act_type=self.act_type)
         self.tensor_board = TensorBoard(log_dir='./logs')
 
-        self.save_models('init')
-                        
-    
+        self.start_iter=START_ITER
+
+
+        print("Starting training from iteration",self.start_iter)
+        if self.start_iter == 0:
+            self.save_models('init')
+        elif self.start_iter > 0:
+            self.load_models(str(self.start_iter))
+        
+
+    def load_models(self,name):
+        print("Loading network weights with file extension:",name)
+        self.model_actor.load_weights('models/model_actor_{}.hdf5'.format(name))
+        self.model_critic.load_weights('models/model_critic_{}.hdf5'.format(name))
+        self.policy.load_weights('models/policy_{}.hdf5'.format(name))
+
     def save_models(self,name):
         print("Saving network weights with file extension:",name)
         self.model_actor.save_weights('models/model_actor_{}.hdf5'.format(name))
@@ -404,12 +423,12 @@ if __name__ == "__main__":
 
     train = run_training(EPOCHS=args.epochs,BATCH_SIZE=args.batch_size,DEBUG=args.debug,ENTROPY_BETA=args.entropy_beta,
                          LR=args.learning_rate,TOTAL_EPISODES=args.episodes,SAVE_EVERY=args.save_every,
-                         USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,NUM_PERMS=args.num_perms,ACT_TYPE=args.act_type)
+                         USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,NUM_PERMS=args.num_perms,ACT_TYPE=args.act_type,START_ITER=args.start_iter)
 
     actor_loss = []
     critic_loss= []
     
-    for i in range(args.iterations):
+    for i in range(args.start_iter,args.iterations):
         train.generate_batch()
         a_hist,c_hist  = train.compute_grads(i)
         print("\na_hist dict:",a_hist.history)
