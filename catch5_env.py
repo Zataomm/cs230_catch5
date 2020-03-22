@@ -73,7 +73,7 @@ class catch5():
         """
         new_probs = np.multiply(probs,legal_moves)
         total_moves = int(np.sum(legal_moves))
-        total_zerop_moves=total_moves-int(np.sum(np.subtract(legal_moves,np.ceil(new_probs))))
+        total_zerop_moves=int(np.sum(np.subtract(legal_moves,np.ceil(new_probs))))
         norm = np.sum(new_probs)
         if (norm>0):
             new_probs = new_probs/norm
