@@ -440,7 +440,7 @@ if __name__ == "__main__":
         print("Average zero probability moves at iteration",i," = ",train.avg_zerop)        
         
         if args.plot:
-            x_axis=range(i+1)
+            x_axis=range(args.start_iter,i+1)
             plt.cla()
             plt.grid(True)
             plt.ylabel("actor, critic loss")
