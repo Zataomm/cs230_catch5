@@ -99,7 +99,8 @@ class run_simulations():
         self.average_winning_bid = [c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg()]
         self.average_rewards_per_winning_bid=[c5utils.RunningAvg(),c5utils.RunningAvg(),
                                               c5utils.RunningAvg(),c5utils.RunningAvg()]
-        
+
+        self.stats_dict = {}
 
     def set_policies(self):
         # loop through the list and set policies for each of the players
@@ -224,4 +225,17 @@ class run_simulations():
         print("Point avg Team1:",self.points_per_game[1].get_avg()) 
         print("Average number of hands per game:",self.hands_per_game[0].get_avg())
             
-
+        self.stats_dict["bids_won"]=self.number_of_bids_won
+        self.stats_dict["average_bid"] =[self.average_winning_bid[0].get_avg(),self.average_winning_bid[1].get_avg(),
+                                         self.average_winning_bid[2].get_avg(),self.average_winning_bid[3].get_avg()]
+        self.stats_dict["rewards_per_bid"]=[self.average_rewards_per_winning_bid[0].get_avg(),self.average_rewards_per_winning_bid[1].get_avg(),
+                                            self.average_rewards_per_winning_bid[2].get_avg(),self.average_rewards_per_winning_bid[3].get_avg()]
+        self.stats_dict["bid_suit_distribution"]=bid_suits
+        self.stats_dict["games_won_per_team"]=self.game_win_total 
+        self.stats_dict["hands_won_per_team"]=self.hand_win_total
+        self.stats_dict["raw_hands_won_per_team"]=self.raw_hand_win_total
+        self.stats_dict["point_average"]=[self.points_per_game[0].get_avg(),
+                                          self.points_per_game[1].get_avg()]
+        self.stats_dict["average_hands_per_game"]=self.hands_per_game[0].get_avg()
+        
+        return self.stats_dict

@@ -72,5 +72,5 @@ if __name__ == "__main__":
                         allow_random_suit=args.random_suit,DEBUG=args.debug,TOTAL_GAMES=args.total_games,
                         USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,ACT_TYPE=args.act_type)
     sim.set_policies()
-    sim.play_games()
+    stats_dict = sim.play_games()
 
