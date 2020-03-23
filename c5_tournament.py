@@ -88,7 +88,6 @@ if __name__ == "__main__":
                                           USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,ACT_TYPE=args.act_type)
         sim.set_policies()
         all_stats[i] = sim.play_games()
-        print(all_stats)
 
     #set x-axis
     x_axis =  list(range(args.start_iters,args.stop_iters+1,args.steps))
@@ -99,8 +98,6 @@ if __name__ == "__main__":
     bid_suit_distribution=[[],[],[],[]]
     hands_won_per_team=[[],[]]
     raw_hands_won_per_team=[[],[]]
-    point_average=[[],[]]
-    average_hands_per_game=[]
     for i in range(args.start_iters,args.stop_iters+1,args.steps):
         for j in range(4):
             bids_won[j].append(all_stats[i]['bids_won'][j])
@@ -110,8 +107,6 @@ if __name__ == "__main__":
         for j in range(2):
             hands_won_per_team[j].append(all_stats[i]['hands_won_per_team'][j])
             raw_hands_won_per_team[j].append(all_stats[i]['raw_hands_won_per_team'][j])
-            point_average[j].append(all_stats[i]['point_average'][j])
-        average_hands_per_game.append(all_stats[i]['average_hands_per_game'])
 
     # Now plot the bidding data
     bfig = plt.figure()

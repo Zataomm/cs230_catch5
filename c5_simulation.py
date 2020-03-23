@@ -88,13 +88,9 @@ class run_simulations():
 
         
         #stats and counters
-        self.score=[0,0]
         self.total_hands=0
-        self.game_win_total=[0,0]
         self.hand_win_total=[0,0]
         self.raw_hand_win_total=[0,0]
-        self.points_per_game=[c5utils.RunningAvg(),c5utils.RunningAvg()]
-        self.hands_per_game=[c5utils.RunningAvg()]
         self.number_of_bids_won = [0,0,0,0]
         self.average_winning_bid = [c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg()]
         self.average_rewards_per_winning_bid=[c5utils.RunningAvg(),c5utils.RunningAvg(),
@@ -119,94 +115,70 @@ class run_simulations():
         game_num=0
         bid_suits=[0,0,0,0]
         while(game_num < self.TOTAL_GAMES):
-            self.score = [0,0]
-            self.num_hands=0  
+            if self.DEBUG:
+                print("Dealer is player ",self.env.dealer)
+            #play a hand 
+            done = False
 
-            # play a game 
-            while self.score[0] < self.winning_score and self.score[1] < self.winning_score:
-
-                if self.DEBUG:
-                    print("Dealer is player ",self.env.dealer)
-                #play a hand 
-                done = False
-
-                while not done:
-                    observation = self.env.states[self.env.current_player]
-                    int_obs =  np.copy(self.env.int_states[self.env.current_player])
-                    if not self.USE_INT_STATES:
-                        state_input = observation[np.newaxis,:]
-                    else:
-                        state_input = int_obs[np.newaxis,:]
-
-                    if self.DEBUG:
-                        c5utils.print_binstate(observation,self.env.current_player)
-
-                    legal_actions=self.env.legal_actions()
-        
-                    if self.DEBUG:
-                        c5utils.print_actions(legal_actions)
-
-                    # now get the next move - and update states depending on who is playing
-                    action=self.player_policy[self.env.current_player%2].play(state_input,int_obs,legal_actions)
-
-                                    
-                    if self.DEBUG:
-                        c5utils.print_action(action)
-                        print("Step number = ",self.env.num_plays)
-
-                    #take a step and return next state 
-                    observation,reward,done,_ = self.env.step(self.env.action_map[action])
-
-
-                self.num_hands+=1
-
-                self.number_of_bids_won[self.env.bidder]+=1
-                self.average_winning_bid[self.env.bidder].set_avg(self.env.best_bid)
-                self.average_rewards_per_winning_bid[self.env.bidder].set_avg(self.env.rewards[self.env.bidder])
-                bid_suits[int(self.env.bid_suit)]+=1
-                if self.DEBUG:
-                    c5utils.print_tricks(self.env.trick_info)
-
-                if self.DEBUG:
-                    for i in range(4):
-                        print("Rewards for team ",i,":",self.env.rewards[i])
-
-                self.score[0]+=self.env.rewards[0]
-                self.score[1]+=self.env.rewards[1]
-
-                if self.env.rewards[0] > self.env.rewards[1]:
-                    self.hand_win_total[0] += 1
+            while not done:
+                observation = self.env.states[self.env.current_player]
+                int_obs =  np.copy(self.env.int_states[self.env.current_player])
+                if not self.USE_INT_STATES:
+                    state_input = observation[np.newaxis,:]
                 else:
-                    self.hand_win_total[1] += 1
-
-                if self.env.game_points[0] > self.env.game_points[1]:
-                    self.raw_hand_win_total[0] += 1
-                else:
-                    self.raw_hand_win_total[1] += 1
-
-                    
+                    state_input = int_obs[np.newaxis,:]
 
                 if self.DEBUG:
-                    print("====================  Scores team[0]:",self.score[0])
-                    print("====================  Scores team[1]:",self.score[1])
+                    c5utils.print_binstate(observation,self.env.current_player)
+
+                legal_actions=self.env.legal_actions()
+
+                if self.DEBUG:
+                    c5utils.print_actions(legal_actions)
+
+                # now get the next move - and update states depending on who is playing
+                action=self.player_policy[self.env.current_player%2].play(state_input,int_obs,legal_actions)
 
 
-                #reset and count hands 
-                self.env.reset()        
+                if self.DEBUG:
+                    c5utils.print_action(action)
+                    print("Step number = ",self.env.num_plays)
 
-                if self.score[0]>=self.winning_score and self.score[0] > self.score[1]:
-                    self.game_win_total[0]+=1
-                if self.score[1]>=self.winning_score and self.score[1] > self.score[0]:
-                    self.game_win_total[1] +=1
+                #take a step and return next state 
+                observation,reward,done,_ = self.env.step(self.env.action_map[action])
 
-            self.hands_per_game[0].set_avg(self.num_hands)
-            self.points_per_game[0].set_avg(self.score[0])
-            self.points_per_game[1].set_avg(self.score[1])
+            self.number_of_bids_won[self.env.bidder]+=1
+            self.average_winning_bid[self.env.bidder].set_avg(self.env.best_bid)
+            self.average_rewards_per_winning_bid[self.env.bidder].set_avg(self.env.rewards[self.env.bidder])
+            bid_suits[int(self.env.bid_suit)]+=1
+            if self.DEBUG:
+                c5utils.print_tricks(self.env.trick_info)
+
+            if self.DEBUG:
+                for i in range(4):
+                    print("Rewards for team ",i,":",self.env.rewards[i])
+
+            if self.env.rewards[0] > self.env.rewards[1]:
+                self.hand_win_total[0] += 1
+            else:
+                self.hand_win_total[1] += 1
+
+            if self.env.game_points[0] > self.env.game_points[1]:
+                self.raw_hand_win_total[0] += 1
+            else:
+                self.raw_hand_win_total[1] += 1
+
+
+            if self.DEBUG:
+                print("====================  Scores team[0]:",self.hand_win_total[0])
+                print("====================  Scores team[1]:",self.hand_win_total[1])
+
+
+            #reset and count hands 
+            self.env.reset()        
 
             game_num+=1
 
-
-            print("Current score: Team 0:",self.game_win_total[0],"Team 1:",self.game_win_total[1])
 
         for i in range(4):
             print("Player:",i,"number of winning bids:",self.number_of_bids_won[i])
@@ -215,15 +187,10 @@ class run_simulations():
             
         print("Bid suit distribution:",bid_suits)
 
-        print("Wins for team 0:",self.game_win_total[0])
-        print("Wins for team 1:",self.game_win_total[1])
         print("Hands won for team 0:",self.hand_win_total[0])
         print("Hands won for team 1:",self.hand_win_total[1])
         print("Raw hands won for team 0:",self.raw_hand_win_total[0])
         print("Raw hands won for team 1:",self.raw_hand_win_total[1])        
-        print("Point avg Team0:",self.points_per_game[0].get_avg())
-        print("Point avg Team1:",self.points_per_game[1].get_avg()) 
-        print("Average number of hands per game:",self.hands_per_game[0].get_avg())
             
         self.stats_dict["bids_won"]=self.number_of_bids_won
         self.stats_dict["average_bid"] =[self.average_winning_bid[0].get_avg(),self.average_winning_bid[1].get_avg(),
@@ -231,11 +198,7 @@ class run_simulations():
         self.stats_dict["rewards_per_bid"]=[self.average_rewards_per_winning_bid[0].get_avg(),self.average_rewards_per_winning_bid[1].get_avg(),
                                             self.average_rewards_per_winning_bid[2].get_avg(),self.average_rewards_per_winning_bid[3].get_avg()]
         self.stats_dict["bid_suit_distribution"]=bid_suits
-        self.stats_dict["games_won_per_team"]=self.game_win_total 
         self.stats_dict["hands_won_per_team"]=self.hand_win_total
         self.stats_dict["raw_hands_won_per_team"]=self.raw_hand_win_total
-        self.stats_dict["point_average"]=[self.points_per_game[0].get_avg(),
-                                          self.points_per_game[1].get_avg()]
-        self.stats_dict["average_hands_per_game"]=self.hands_per_game[0].get_avg()
         
         return self.stats_dict
