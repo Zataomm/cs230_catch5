@@ -78,7 +78,10 @@ if __name__ == "__main__":
     print("Debug flag:",args.debug)
     print("Allow random players to bid:",args.random_bid)
     print("Allow random players to select random suits:",args.random_suit)   
-  
+
+    
+    
+    
     #Run tests 
     for i in range(args.start_iters,args.stop_iters+1,args.steps):
         current_policy = 'models/policy_{}.hdf5'.format(i)
@@ -95,6 +98,7 @@ if __name__ == "__main__":
     bids_won=[[],[],[],[]]
     average_bid=[[],[],[],[]]
     rewards_per_bid=[[],[],[],[]]
+    rewards_per_non_bid=[[],[],[],[]]
     bid_suit_distribution=[[],[],[],[]]
     hands_won_per_team=[[],[]]
     raw_hands_won_per_team=[[],[]]
@@ -103,45 +107,69 @@ if __name__ == "__main__":
             bids_won[j].append(all_stats[i]['bids_won'][j])
             average_bid[j].append(all_stats[i]['average_bid'][j])
             rewards_per_bid[j].append(all_stats[i]['rewards_per_bid'][j])
+            rewards_per_non_bid[j].append(all_stats[i]['rewards_per_non_bid'][j])           
             bid_suit_distribution[j].append(all_stats[i]['bid_suit_distribution'][j])
         for j in range(2):
             hands_won_per_team[j].append(all_stats[i]['hands_won_per_team'][j])
             raw_hands_won_per_team[j].append(all_stats[i]['raw_hands_won_per_team'][j])
 
     # Now plot the bidding data
+    # Set title bar
+    policy_title=None
+    if args.policy1 == "random":
+        if args.random_bid == False:
+            policy_title="Random Play: Bidding Off"
+        elif args.random_suit == False:
+            policy_title="Random Play & Bidding: Enhanced Suit Selection"
+        else:
+            policy_title="Random Play"
+    else:
+        temp1 = args.policy1.replace('.','_')
+        temp2 = temp1.split('_')
+        policy_title = "Policy at Iteration {}".format(temp2[1])
+
+    
     bfig = plt.figure()
-    bfig.suptitle('Bidding Information', fontsize=16)
+    bfig.suptitle('Bidding Stats for {} (blue,cyan)'.format(policy_title), fontsize=16)
     
     bax1 = bfig.add_subplot(221)
     bax2 = bfig.add_subplot(222)
     bax3 = bfig.add_subplot(223)
     bax4 = bfig.add_subplot(224)
     
-    
+    bax1.grid()
     bax1.plot(x_axis,bids_won[0],'b')
     bax1.plot(x_axis,bids_won[1],'r')
     bax1.plot(x_axis,bids_won[2],'c')
     bax1.plot(x_axis,bids_won[3],'m')
-    bax1.set_ylabel('# Bids Won')
-    
+    bax1.set_ylabel('Bids Won')
+    bax1.set_xlabel('Iterations')
+
+    bax2.grid()
     bax2.plot(x_axis,average_bid[0],'b')
     bax2.plot(x_axis,average_bid[1],'r')
     bax2.plot(x_axis,average_bid[2],'c')
     bax2.plot(x_axis,average_bid[3],'m')
-    bax2.set_ylabel('# Average Bid')
-    
+    bax2.set_ylabel('Average Bid')
+    bax2.set_xlabel('Iterations')
+
+    bax3.grid()
     bax3.plot(x_axis,rewards_per_bid[0],'b')
     bax3.plot(x_axis,rewards_per_bid[1],'r')
     bax3.plot(x_axis,rewards_per_bid[2],'c')
     bax3.plot(x_axis,rewards_per_bid[3],'m')
-    bax3.set_ylabel('# Average Rewards Per Bid')
-    
-    bax4.plot(x_axis,bid_suit_distribution[0],'olive')
-    bax4.plot(x_axis,bid_suit_distribution[1],'lime')
-    bax4.plot(x_axis,bid_suit_distribution[2],'green')
-    bax4.plot(x_axis,bid_suit_distribution[3],'teal')
-    bax4.set_ylabel('Bid Suit Distribution')
+    bax3.set_ylabel('Average Rewards Per Bid')
+    bax3.set_xlabel('Iterations')
 
+    bax4.grid()
+    bax4.plot(x_axis,rewards_per_non_bid[0],'b')
+    bax4.plot(x_axis,rewards_per_non_bid[1],'r')
+    #bax4.plot(x_axis,rewards_per_non_bid[2],'c')
+    #bax4.plot(x_axis,rewards_per_non_bid[3],'m')
+    bax4.set_ylabel('Average Rewards Per No Bid')
+    bax4.set_xlabel('Iterations')
+  
+    
     plt.show()
 
 
@@ -149,19 +177,25 @@ if __name__ == "__main__":
     
     gfig =  plt.figure()
 
-    gfig.suptitle('Game Information', fontsize=16)
+    gfig.suptitle('Hands Won for {} (blue)'.format(policy_title), fontsize=16)
     
     gax1 = gfig.add_subplot(121)
     gax2 = gfig.add_subplot(122)
 
+    gax1.grid()
     gax1.plot(x_axis,hands_won_per_team[0],'b')
     gax1.plot(x_axis,hands_won_per_team[1],'r')
-    gax1.set_ylabel('# Hands Won Per Team')
-
+    gax1.set_ylabel('Hands Won Per Team')
+    gax1.set_xlabel('Iterations')
+   
+    gax2.grid()
     gax2.plot(x_axis,raw_hands_won_per_team[0],'b')
     gax2.plot(x_axis,raw_hands_won_per_team[1],'r')
-    gax2.set_ylabel('# Raw Hands Won Per Team')
+    gax2.set_ylabel('Raw Hands Won Per Team')
+    gax2.set_xlabel('Iterations')
 
+
+    
     plt.show()
     
     

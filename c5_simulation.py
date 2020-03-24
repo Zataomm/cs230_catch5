@@ -92,8 +92,11 @@ class run_simulations():
         self.hand_win_total=[0,0]
         self.raw_hand_win_total=[0,0]
         self.number_of_bids_won = [0,0,0,0]
+        
         self.average_winning_bid = [c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg(),c5utils.RunningAvg()]
         self.average_rewards_per_winning_bid=[c5utils.RunningAvg(),c5utils.RunningAvg(),
+                                              c5utils.RunningAvg(),c5utils.RunningAvg()]
+        self.average_rewards_per_non_bid=[c5utils.RunningAvg(),c5utils.RunningAvg(),
                                               c5utils.RunningAvg(),c5utils.RunningAvg()]
 
         self.stats_dict = {}
@@ -150,6 +153,9 @@ class run_simulations():
             self.number_of_bids_won[self.env.bidder]+=1
             self.average_winning_bid[self.env.bidder].set_avg(self.env.best_bid)
             self.average_rewards_per_winning_bid[self.env.bidder].set_avg(self.env.rewards[self.env.bidder])
+            self.average_rewards_per_non_bid[(self.env.bidder+1)%4].set_avg(self.env.rewards[(self.env.bidder+1)%4])
+            self.average_rewards_per_non_bid[(self.env.bidder+3)%4].set_avg(self.env.rewards[(self.env.bidder+3)%4])
+                        
             bid_suits[int(self.env.bid_suit)]+=1
             if self.DEBUG:
                 c5utils.print_tricks(self.env.trick_info)
@@ -179,11 +185,15 @@ class run_simulations():
 
             game_num+=1
 
+            if (game_num%1000) == 0:
+                print("====================  Scores team[0]:",self.hand_win_total[0])
+                print("====================  Scores team[1]:",self.hand_win_total[1])
 
         for i in range(4):
             print("Player:",i,"number of winning bids:",self.number_of_bids_won[i])
             print("Average winning bid:",self.average_winning_bid[i].get_avg())
             print("Avg rewards per winning bid:",self.average_rewards_per_winning_bid[i].get_avg())
+            print("Avg rewards when not winning bid:",self.average_rewards_per_non_bid[i].get_avg())
             
         print("Bid suit distribution:",bid_suits)
 
@@ -197,6 +207,8 @@ class run_simulations():
                                          self.average_winning_bid[2].get_avg(),self.average_winning_bid[3].get_avg()]
         self.stats_dict["rewards_per_bid"]=[self.average_rewards_per_winning_bid[0].get_avg(),self.average_rewards_per_winning_bid[1].get_avg(),
                                             self.average_rewards_per_winning_bid[2].get_avg(),self.average_rewards_per_winning_bid[3].get_avg()]
+        self.stats_dict["rewards_per_non_bid"]=[self.average_rewards_per_non_bid[0].get_avg(),self.average_rewards_per_non_bid[1].get_avg(),
+                                            self.average_rewards_per_non_bid[2].get_avg(),self.average_rewards_per_non_bid[3].get_avg()]
         self.stats_dict["bid_suit_distribution"]=bid_suits
         self.stats_dict["hands_won_per_team"]=self.hand_win_total
         self.stats_dict["raw_hands_won_per_team"]=self.raw_hand_win_total
