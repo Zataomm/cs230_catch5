@@ -15,6 +15,8 @@ import c5ppo
 import time
 from tensorflow.keras.callbacks import TensorBoard,LearningRateScheduler
 from tensorflow.keras.models import save_model
+from tensorflow.keras.utils import plot_model
+
 
 # set up argument parser for parameters for training
 parser = argparse.ArgumentParser(description='Parser for catch5 training script')
@@ -143,6 +145,10 @@ class run_training():
         self.model_critic = c5ppo.build_critic_network(input_dims=self.STATE_DIMS,learning_rate=self.learning_rate,act_type=self.act_type)
         self.tensor_board = TensorBoard(log_dir='./logs')
 
+        plot_model(self.model_actor, to_file='model_actor.png',show_shapes=True)
+        plot_model(self.model_critic, to_file='model_critic.png',show_shapes=True)
+         
+        
         self.start_iter=START_ITER
 
 
