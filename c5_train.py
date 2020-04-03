@@ -138,7 +138,7 @@ class run_training():
         self.avg_mass = 0.0
         self.avg_zerop = 0.0
 
-        self.reward_norm = 18.0 # should be max reward ....
+        self.reward_norm = 9.0 # should be max reward ....
 
         self.model_actor,self.policy = c5ppo.build_actor_network(input_dims=self.STATE_DIMS,output_dims=self.N_ACTIONS,
                                                                  learning_rate=self.learning_rate,clipping_val=self.clipping_val,entropy_beta=self.entropy_beta,act_type=self.act_type)

@@ -214,8 +214,8 @@ class catch5():
         self.game_points[1]=self.game_points[3]=(self.game_points[1]+self.game_points[3])
         if self.best_bid > self.game_points[self.bidder]:
             self.penalty[self.bidder] = self.penalty[(self.bidder+2)%4] =  -self.best_bid
-        elif self.best_bid == 9 and self.game_points[self.bidder] == 9:
-            self.game_points[self.bidder] = self.game_points[(self.bidder+2)%4] = 18
+        #elif self.best_bid == 9 and self.game_points[self.bidder] == 9:
+        #    self.game_points[self.bidder] = self.game_points[(self.bidder+2)%4] = 18
         for i in range(4):
             if self.penalty[i]<0:
                 self.rewards[i]=self.penalty[i]
