@@ -59,6 +59,18 @@ parser.add_argument('-lr', action='store',
                     dest='learning_rate',
                     help='Learning rate for the algorithm')
 
+parser.add_argument('-clip', action='store',
+                    type=float,
+                    default=0.2,
+                    dest='clip_val',
+                    help='Clipping Value for PPO')
+
+parser.add_argument('-cd', action='store',
+                    type=float,
+                    default=0.5,
+                    dest='critic_disc',
+                    help='Critic discount for combined loss function.')
+
 parser.add_argument('-episodes', action='store',
                     type=int,
                     default=32,
@@ -423,12 +435,21 @@ if __name__ == "__main__":
     print("Batch size:",args.batch_size)
         
 
-    train = run_training(EPOCHS=args.epochs,BATCH_SIZE=args.batch_size,DEBUG=args.debug,ENTROPY_BETA=args.entropy_beta,
-                         LR=args.learning_rate,TOTAL_EPISODES=args.episodes,SAVE_EVERY=args.save_every,
+    train = run_training(EPOCHS=args.epochs,CLIP_VAL=args.clip_val,BATCH_SIZE=args.batch_size,DEBUG=args.debug,ENTROPY_BETA=args.entropy_beta,
+                         LR=args.learning_rate,TOTAL_EPISODES=args.episodes,SAVE_EVERY=args.save_every,CRITIC_DIS=args.critic_disc,
                          USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,NUM_PERMS=args.num_perms,ACT_TYPE=args.act_type,START_ITER=args.start_iter)
 
     actor_loss = []
     critic_loss= []
+    prob_mass = []
+
+
+    if args.plot:
+        bfig = plt.figure()
+        bfig.suptitle('Actor-Critic Loss/Probability Mass', fontsize=12)
+        bax1 = bfig.add_subplot(311)
+        bax2 = bfig.add_subplot(312)
+        bax3 = bfig.add_subplot(313)
     
     for i in range(args.start_iter,args.iterations):
         train.generate_batch()
@@ -438,17 +459,35 @@ if __name__ == "__main__":
         print(np.mean(np.asarray(a_hist.history['loss'])),np.mean(np.asarray(c_hist.history['loss'])))
         actor_loss =  actor_loss+[np.mean(np.asarray(a_hist.history['loss']))]
         critic_loss = critic_loss+[np.mean(np.asarray(c_hist.history['loss']))]
+        prob_mass = prob_mass + [train.avg_mass]
         print("Average mass at iteration",i," = ",train.avg_mass)
-        print("Average zero probability moves at iteration",i," = ",train.avg_zerop)        
+        print("Average zero probability moves at iteration",i," = ",train.avg_zerop)
+        
         
         if args.plot:
-            x_axis=range(args.start_iter,i+1)
             plt.cla()
-            plt.grid(True)
-            plt.ylabel("actor, critic loss")
-            plt.xlabel("Number of iterations")
-            plt.title("Actor(b)-Critic(g) Loss vs Iterations")
-            plt.plot(x_axis,actor_loss,'b',x_axis,critic_loss,'g')
+            x_axis=range(args.start_iter,i+1)
+
+            bax1.clear()
+            bax1.grid(True)
+            bax1.plot(x_axis,actor_loss,'b')
+            bax1.set_ylabel('Actor Loss')
+
+            bax2.clear()
+            bax2.grid(True)
+            bax2.plot(x_axis,critic_loss,'g')
+            bax2.set_ylabel('Critic Loss')
+            
+            bax3.clear()
+            bax3.grid(True)
+            bax3.plot(x_axis,prob_mass,'r')
+            bax3.set_ylabel('Probability Mass')
+            bax3.set_xlabel('Iterations')        
+            
             plt.draw()
             plt.pause(0.01)
-    
+            
+            if i%args.save_every == 0 and i > 0:
+                plt.savefig('models/actor_critic_pm_iters_{}.png'.format(i))
+            
+ 
