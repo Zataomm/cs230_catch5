@@ -65,12 +65,6 @@ parser.add_argument('-clip', action='store',
                     dest='clip_val',
                     help='Clipping Value for PPO')
 
-parser.add_argument('-cd', action='store',
-                    type=float,
-                    default=0.5,
-                    dest='critic_disc',
-                    help='Critic discount for combined loss function.')
-
 parser.add_argument('-episodes', action='store',
                     type=int,
                     default=32,
@@ -114,13 +108,12 @@ parser.add_argument('-start_iteration', action='store',
 class run_training():
     """ Class used to train networks to learn how to play the game catch5.  
     """
-    def __init__(self,DEBUG=False,CLIP_VAL=0.2,CRITIC_DIS=0.5,ENTROPY_BETA=0.01,GAMMA=0.99,
+    def __init__(self,DEBUG=False,CLIP_VAL=0.2,ENTROPY_BETA=0.01,GAMMA=0.99,
                  LMBDA=0.95,LR=0.00005,BATCH_SIZE=8,EPOCHS=5,TOTAL_EPISODES=32,STATE_DIMS=504,
                  N_ACTIONS=64,ITERATIONS=1000001,SAVE_EVERY=50,USE_INT_STATES=False,NUM_PERMS=-1,ACT_TYPE="tanh",START_ITER=0):
 
         #parameters
         self.clipping_val = CLIP_VAL
-        self.critic_discount = CRITIC_DIS
         self.entropy_beta = ENTROPY_BETA
         self.gamma = GAMMA
         self.lmbda = LMBDA
@@ -417,11 +410,11 @@ class run_training():
         
         actor_loss = self.model_actor.fit([self.batch_states, self.batch_prob, self.batch_advantages],
                                           [self.batch_actions_onehot],batch_size=self.BATCH_SIZE,verbose=True, shuffle=True,
-                                          epochs=self.EPOCHS,callbacks=[self.tensor_board])
+                                          epochs=self.EPOCHS)
 
         
         critic_loss = self.model_critic.fit([self.batch_states], [self.batch_returns],batch_size=self.BATCH_SIZE,shuffle=True,
-                                            epochs=self.EPOCHS,verbose=True, callbacks=[self.tensor_board])
+                                            epochs=self.EPOCHS,verbose=True)
         
         if itrs%self.SAVE_EVERY == 0:
             self.save_models(itrs)
@@ -436,7 +429,7 @@ if __name__ == "__main__":
         
 
     train = run_training(EPOCHS=args.epochs,CLIP_VAL=args.clip_val,BATCH_SIZE=args.batch_size,DEBUG=args.debug,ENTROPY_BETA=args.entropy_beta,
-                         LR=args.learning_rate,TOTAL_EPISODES=args.episodes,SAVE_EVERY=args.save_every,CRITIC_DIS=args.critic_disc,
+                         LR=args.learning_rate,TOTAL_EPISODES=args.episodes,SAVE_EVERY=args.save_every,
                          USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,NUM_PERMS=args.num_perms,ACT_TYPE=args.act_type,START_ITER=args.start_iter)
 
     actor_loss = []
