@@ -143,7 +143,7 @@ class run_training():
         self.avg_mass = 0.0
         self.avg_zerop = 0.0
 
-        self.bid_metric = -1
+        self.bid_metric = 0.0
         self.bid_beta = 0.99
 
         self.reward_norm = 9.0 # should be max reward ....
@@ -488,7 +488,7 @@ if __name__ == "__main__":
 
             bax4.clear()
             bax4.grid(True)
-            bax4.plot(x_axis,bid_metric,'b')
+            bax4.plot(x_axis,bid_metric,'k')
             bax4.set_ylabel('Bid Metric')
             bax4.set_xlabel('Iterations')        
             
