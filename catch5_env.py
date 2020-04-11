@@ -64,6 +64,8 @@ class catch5():
         self.game_points=[0,0,0,0]
         self.penalty=[0,0,0,0]
         self.a2i={1:0,3:1,4:2,5:3,6:4,7:5,8:6,9:7}
+        self.bid_max_cards=-1
+        self.bid_max_value=-1
         
         return self.current_player
 
@@ -101,11 +103,11 @@ class catch5():
             if num_bids == 3: # dealer is bidding - only needs to equal highest - and can pass if no bidders
                 if max_bid == 1:
                     actions[0]=0
-                for i in range(1,max_bid-2):
-                    actions[i]=0
-            else: #others must beat highest bidder or pass
-                for i in range(1,max_bid-1):
-                    actions[i]=0
+                #for i in range(1,max_bid-2):
+                #    actions[i]=0
+            #else: #others must beat highest bidder or pass
+            #    for i in range(1,max_bid-1):
+            #        actions[i]=0
         elif self.int_states[self.current_player][4] == 0:  #winning bidder is choosing a suit
             actions[8:12] = ones[0:4]
         else:  # we are playing so actions have to follow the "follow lead suit rule"
@@ -135,7 +137,33 @@ class catch5():
                 self.int_states[(self.current_player+i)%4][(4-i)%4]=action
                 self.states[(self.current_player+i)%4][8*((4-i)%4)+self.a2i[action]]=1
         elif self.int_states[self.current_player][4] == 0: # action is selecting a suit 
-            players_cards=[]                       
+            players_cards=[]
+            # evaluate current hand for choice of bidding suit
+            current_hand=list(self.int_states[self.current_player][9:18])
+            num_in_suit=[]
+            val_in_suit=[]
+            for i in range(4):
+                num,indx=c5utils.numberSuit(current_hand,i)
+                num_in_suit.append(num)
+                # now add up card values
+                val=0
+                if num > 0:
+                    for j in range(indx[0],indx[1]+1):
+                        val += ((current_hand[j]-1)%13)+1
+                val_in_suit.append(val)
+            #determine if choice of bid suit was good and record
+            self.bid_max_cards=1
+            self.bid_max_value=1                 
+            max_cards=num_in_suit[action-1]
+            max_val=val_in_suit[action-1]
+            for i in range(4):
+                if max_cards < num_in_suit[i]:
+                    self.bid_max_cards=0
+                if max_val < val_in_suit[i]:
+                    self.bid_max_value=0
+            #print("Cards:",c5utils.card2str(current_hand),"Max cards:",self.bid_max_cards,"Max val:", self.bid_max_value)
+            #print("Action:",action-1,"Hand:",current_hand)
+            #print("Vals:",val_in_suit,"Num:",num_in_suit)
             for i in range(4):
                 #set action
                 self.int_states[(self.current_player+i)%4][4]=action

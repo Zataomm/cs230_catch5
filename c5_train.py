@@ -143,6 +143,9 @@ class run_training():
         self.avg_mass = 0.0
         self.avg_zerop = 0.0
 
+        self.bid_metric = -1
+        self.bid_beta = 0.99
+
         self.reward_norm = 9.0 # should be max reward ....
 
         self.model_actor,self.policy = c5ppo.build_actor_network(input_dims=self.STATE_DIMS,output_dims=self.N_ACTIONS,
@@ -193,7 +196,7 @@ class run_training():
             #store trajectories for the four different players 
             # trajectories should be list of lists with [S,A,V,R,Done] for
             # the episode in time order ... needed for computing advantages
-            trajectories=[[],[],[],[],[]]
+            trajectories=[[],[],[],[]]
             done = False
             while not done:
                 observation = np.copy(c5env.states[c5env.current_player])
@@ -296,6 +299,8 @@ class run_training():
             self.batch_advantages=self.batch_advantages+eps_advantages
 
             # reset and get next batch
+            curr_bm = c5env.bid_max_cards+c5env.bid_max_value
+            self.bid_metric = curr_bm + self.bid_beta*(self.bid_metric-curr_bm)
             episode_num+=1
             c5env.reset()    
 
@@ -435,14 +440,17 @@ if __name__ == "__main__":
     actor_loss = []
     critic_loss= []
     prob_mass = []
+    bid_metric = []
 
 
     if args.plot:
         bfig = plt.figure()
-        bfig.suptitle('Actor-Critic Loss/Probability Mass', fontsize=12)
-        bax1 = bfig.add_subplot(311)
-        bax2 = bfig.add_subplot(312)
-        bax3 = bfig.add_subplot(313)
+        bfig.suptitle('Actor-Critic Loss/Probability Mass/Bid Metric', fontsize=12)
+        bax1 = bfig.add_subplot(411)
+        bax2 = bfig.add_subplot(412)
+        bax3 = bfig.add_subplot(413)
+        bax4 = bfig.add_subplot(414)
+        
     
     for i in range(args.start_iter,args.iterations):
         train.generate_batch()
@@ -453,8 +461,10 @@ if __name__ == "__main__":
         actor_loss =  actor_loss+[np.mean(np.asarray(a_hist.history['loss']))]
         critic_loss = critic_loss+[np.mean(np.asarray(c_hist.history['loss']))]
         prob_mass = prob_mass + [train.avg_mass]
+        bid_metric =  bid_metric + [train.bid_metric]
         print("Average mass at iteration",i," = ",train.avg_mass)
         print("Average zero probability moves at iteration",i," = ",train.avg_zerop)
+        print("Bid metric at iteration",i," = ",train.bid_metric)
         
         
         if args.plot:
@@ -475,7 +485,12 @@ if __name__ == "__main__":
             bax3.grid(True)
             bax3.plot(x_axis,prob_mass,'r')
             bax3.set_ylabel('Probability Mass')
-            bax3.set_xlabel('Iterations')        
+
+            bax4.clear()
+            bax4.grid(True)
+            bax4.plot(x_axis,bid_metric,'b')
+            bax4.set_ylabel('Bid Metric')
+            bax4.set_xlabel('Iterations')        
             
             plt.draw()
             plt.pause(0.01)
