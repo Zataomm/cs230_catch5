@@ -48,13 +48,12 @@ class RunningAvg():
 def card2str(cards):
     """ print cards for ease of debugging 
     """
-    cardStr = None
+    cardStr = ""
     if type(cards) == int:
         cardStr = ppCards[cards-1]
     else:
-        cardStr = None
-        for i in len(cards):
-            cardStr = cardStr + ppCards[i-1] + ","
+        for c in cards:
+            cardStr = cardStr + ppCards[int(c)-1] + ","
     return cardStr
 
 def bincards2int(bin_cards):
