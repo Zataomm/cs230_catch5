@@ -310,12 +310,9 @@ class run_training():
             more diverse data for training to help with suit selection and bidding etc...."""
 
         rand_perms=[(0,1,2,3)]
-        if self.num_perms==-1:
-            rand_perms=self.suit_perms
-        else:
-            for i in range(self.num_perms):
-                next_perm=np.random.randint(1,len(self.suit_perms))
-                rand_perms.append(self.suit_perms[next_perm])
+        for i in range(self.num_perms):
+            next_perm=np.random.randint(1,len(self.suit_perms))
+            rand_perms.append(self.suit_perms[next_perm])
         
         self.batch_actions=len(rand_perms)*self.batch_actions
         self.batch_reward=len(rand_perms)*self.batch_reward
@@ -399,7 +396,8 @@ class run_training():
             
     def compute_grads(self,itrs):
 
-        self.augment_data()
+        if self.num_perms > 0:
+            self.augment_data()
         self.reformat_batch()
 
         if self.DEBUG:
