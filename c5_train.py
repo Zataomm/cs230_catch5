@@ -17,7 +17,6 @@ from tensorflow.keras.callbacks import TensorBoard,LearningRateScheduler
 from tensorflow.keras.models import save_model
 from tensorflow.keras.utils import plot_model
 
-
 # set up argument parser for parameters for training
 parser = argparse.ArgumentParser(description='Parser for catch5 training script')
 
@@ -309,10 +308,10 @@ class run_training():
         """ For every given state we can generate 23 (4!-1) new states for training - which will ensure the 
             more diverse data for training to help with suit selection and bidding etc...."""
 
-        rand_perms=[(0,1,2,3)]
-        for i in range(self.num_perms):
-            next_perm=np.random.randint(1,len(self.suit_perms))
-            rand_perms.append(self.suit_perms[next_perm])
+        rand_perms=[(0,1,2,3),(1,2,3,0),(2,3,0,1),(3,0,1,2)]
+        #for i in range(self.num_perms):
+        #    next_perm=np.random.randint(1,len(self.suit_perms))
+        #    rand_perms.append(self.suit_perms[next_perm])
         
         self.batch_actions=len(rand_perms)*self.batch_actions
         self.batch_reward=len(rand_perms)*self.batch_reward
