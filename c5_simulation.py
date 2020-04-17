@@ -66,8 +66,8 @@ class run_simulations():
         load players policy's from input files, etc....  Program will keep meaningful stats in order 
         to be able to tell if networks are improving.  
     """
-    def __init__(self,DEBUG=True,TOTAL_GAMES=10,policy_def={0:"random",1:"random"},allow_random_bidding=True,
-                 allow_random_suit=True,STATE_DIMS=504,USE_INT_STATES=False,ACT_TYPE="tanh",PICK_MAX=True):
+    def __init__(self,DEBUG=True,TOTAL_GAMES=10,policy_def={0:"random",1:"random"},allow_random_bidding=[True,True],
+                 allow_random_suit=[True,True],STATE_DIMS=504,USE_INT_STATES=False,ACT_TYPE="tanh",PICK_MAX=True):
 
         # parameters
         self.DEBUG = DEBUG
@@ -110,7 +110,7 @@ class run_simulations():
         for i in range(2):
             if self.policy_def[i] == "random":
                 print("Setting team:",i,"to random.")
-                self.player_policy[i]=random_play(random_bidding=self.allow_random_bidding,random_suit=self.allow_random_suit)
+                self.player_policy[i]=random_play(random_bidding=self.allow_random_bidding[i],random_suit=self.allow_random_suit[i])
             else: # policy is defined by network weights
                 print("Loading weights from:",self.policy_def[i],"into network for player",i)
                 _,self.nn_policy[i]=c5ppo.build_actor_network(input_dims=self.STATE_DIMS,output_dims=self.N_ACTIONS,

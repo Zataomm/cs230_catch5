@@ -28,13 +28,21 @@ parser.add_argument('-debug', action='store_true',
                     default=False,
                     dest='debug',
                     help='Turn on debugging')
-parser.add_argument('-rb', action='store_false',
+parser.add_argument('-rb1', action='store_false',
                     default=True,
-                    dest='random_bid',
+                    dest='random_bid1',
                     help='Turn off random bidding')
-parser.add_argument('-rs', action='store_false',
+parser.add_argument('-rs1', action='store_false',
                     default=True,
-                    dest='random_suit',
+                    dest='random_suit1',
+                    help='Turn off random suit selection - random player will select suit of highest number in hand.')
+parser.add_argument('-rb2', action='store_false',
+                    default=True,
+                    dest='random_bid2',
+                    help='Turn off random bidding')
+parser.add_argument('-rs2', action='store_false',
+                    default=True,
+                    dest='random_suit2',
                     help='Turn off random suit selection - random player will select suit of highest number in hand.')
 parser.add_argument('-pm', action='store_false',
                     default=True,
@@ -66,10 +74,10 @@ if __name__ == "__main__":
     print("policy for Team2:",args.policy2)
     print("Total games to play:",args.total_games)
     print("Debug flag:",args.debug)
-    print("Allow random players to bid:",args.random_bid)
-    print("Allow random players to select random suits:",args.random_suit)   
-    sim=c5_simulation.run_simulations(policy_def={0:args.policy1,1:args.policy2},allow_random_bidding=args.random_bid,
-                        allow_random_suit=args.random_suit,DEBUG=args.debug,TOTAL_GAMES=args.total_games,
+    print("Allow random players to bid:",args.random_bid1,args.random_bid2)
+    print("Allow random players to select random suits:",args.random_suit1,args.random_suit2)   
+    sim=c5_simulation.run_simulations(policy_def={0:args.policy1,1:args.policy2},allow_random_bidding=[args.random_bid1,args.random_bid2],
+                        allow_random_suit=[args.random_suit1,args.random_suit2],DEBUG=args.debug,TOTAL_GAMES=args.total_games,
                         USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,ACT_TYPE=args.act_type)
     sim.set_policies()
     stats_dict = sim.play_games()
