@@ -151,7 +151,7 @@ class run_training():
         self.avg_mass = 0.0
         self.avg_zerop = 0.0
 
-        self.bid_metric = 0.0
+        self.bid_metric = 0.5
         self.bid_beta = 0.99
 
         self.bid_suits = [0,0,0,0]
