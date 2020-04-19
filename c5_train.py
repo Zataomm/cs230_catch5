@@ -16,6 +16,7 @@ import time
 from tensorflow.keras.callbacks import TensorBoard,LearningRateScheduler
 from tensorflow.keras.models import save_model
 from tensorflow.keras.utils import plot_model
+from tensorflow.keras import backend as K
 
 # set up argument parser for parameters for training
 parser = argparse.ArgumentParser(description='Parser for catch5 training script')
@@ -52,11 +53,17 @@ parser.add_argument('-eb', action='store',
                     dest='entropy_beta',
                     help='Entropy beta to the loss function')
 
-parser.add_argument('-lr', action='store',
+parser.add_argument('-alr', action='store',
                     type=float,
                     default=0.000025,
-                    dest='learning_rate',
-                    help='Learning rate for the algorithm')
+                    dest='a_lr',
+                    help='Learning rate for the actor network')
+
+parser.add_argument('-clr', action='store',
+                    type=float,
+                    default=0.000025,
+                    dest='c_lr',
+                    help='Learning rate for the critic network')
 
 parser.add_argument('-clip', action='store',
                     type=float,
@@ -108,7 +115,7 @@ class run_training():
     """ Class used to train networks to learn how to play the game catch5.  
     """
     def __init__(self,DEBUG=False,CLIP_VAL=0.2,ENTROPY_BETA=0.01,GAMMA=0.99,
-                 LMBDA=0.95,LR=0.00005,BATCH_SIZE=8,EPOCHS=5,TOTAL_EPISODES=32,STATE_DIMS=504,
+                 LMBDA=0.95,C_LR=0.00005,A_LR=0.00005,BATCH_SIZE=8,EPOCHS=5,TOTAL_EPISODES=32,STATE_DIMS=504,
                  N_ACTIONS=64,ITERATIONS=1000001,SAVE_EVERY=50,USE_INT_STATES=False,NUM_PERMS=-1,ACT_TYPE="tanh",START_ITER=0):
 
         #parameters
@@ -116,7 +123,9 @@ class run_training():
         self.entropy_beta = ENTROPY_BETA
         self.gamma = GAMMA
         self.lmbda = LMBDA
-        self.learning_rate = LR
+        self.actor_learning_rate = A_LR
+        self.critic_learning_rate = C_LR
+        self.min_lr = 0.00001
         self.DEBUG = DEBUG 
         self.BATCH_SIZE=BATCH_SIZE
         self.EPOCHS=EPOCHS
@@ -145,11 +154,13 @@ class run_training():
         self.bid_metric = 0.0
         self.bid_beta = 0.99
 
+        self.bid_suits = [0,0,0,0]
+
         self.reward_norm = 9.0 # should be max reward ....
 
         self.model_actor,self.policy = c5ppo.build_actor_network(input_dims=self.STATE_DIMS,output_dims=self.N_ACTIONS,
-                                                                 learning_rate=self.learning_rate,clipping_val=self.clipping_val,entropy_beta=self.entropy_beta,act_type=self.act_type)
-        self.model_critic = c5ppo.build_critic_network(input_dims=self.STATE_DIMS,learning_rate=self.learning_rate,act_type=self.act_type)
+                                                                 learning_rate=self.actor_learning_rate,clipping_val=self.clipping_val,entropy_beta=self.entropy_beta,act_type=self.act_type)
+        self.model_critic = c5ppo.build_critic_network(input_dims=self.STATE_DIMS,learning_rate=self.critic_learning_rate,act_type=self.act_type)
         self.tensor_board = TensorBoard(log_dir='./logs')
 
         self.start_iter=START_ITER
@@ -175,6 +186,20 @@ class run_training():
         self.policy.save_weights('models/policy_{}.hdf5'.format(name))
 
 
+    def step_decay(self,curriter):
+        drop = 0.5
+        curriter_drop = 10.0
+        lrate = self.critic_learning_rate * np.power(drop,np.floor((1+curriter)/curriter_drop))
+        return min(lrate,self.min_lr)
+
+    def exp_decay(self,curriter,k):
+        lrate = self.critic_learning_rate * np.exp(-k*curriter)
+        return min(lrate,self.min_lr)
+
+    def time_decay(self,curriter,k):
+        lrate = self.critic_learning_rate/(1+k*curriter)
+        return min(lrate,self.min_lr)
+    
     def generate_batch(self):
 
         #reset batch states to be empty
@@ -186,7 +211,7 @@ class run_training():
         self.batch_value=[]
         self.batch_returns=[]
         self.batch_advantages=[]
-
+        self.bid_suits = [0,0,0,0]
         episode_num=0
         
         while(episode_num < self.TOTAL_EPISODES):
@@ -230,6 +255,7 @@ class run_training():
                 if self.DEBUG:
                     c5utils.print_tricks(c5env.trick_info)
                     print(c5env.rewards)
+                    
             # Now add the rewards,states, and values for terminal states i trajectories
             for i in range(4):
                 observation = np.copy(c5env.states[i])
@@ -300,18 +326,23 @@ class run_training():
             # reset and get next batch
             curr_bm = c5env.bid_max_cards+c5env.bid_max_value
             self.bid_metric = curr_bm + self.bid_beta*(self.bid_metric-curr_bm)
+            self.bid_suits[int(c5env.bid_suit)] += 1
             episode_num+=1
             c5env.reset()    
 
 
     def augment_data(self):
         """ For every given state we can generate 23 (4!-1) new states for training - which will ensure the 
-            more diverse data for training to help with suit selection and bidding etc...."""
-
-        rand_perms=[(0,1,2,3),(1,2,3,0),(2,3,0,1),(3,0,1,2)]
-        #for i in range(self.num_perms):
-        #    next_perm=np.random.randint(1,len(self.suit_perms))
-        #    rand_perms.append(self.suit_perms[next_perm])
+            more diverse data for training to help with suit selection and bidding etc.... Instead of looking at random perms 
+            we will look at perms that ensure that we mixt the suit selection up - so bids that augment the trajectories so
+            that we have the bidding suit show up as all other possible suits. So we keep the original trajectory - and add three others.  
+        """
+        
+        all_rand_perms=[[(0,1,2,3),(1,2,3,0),(2,3,0,1),(3,0,1,2)],
+                    [(0,1,2,3),(1,0,3,2),(2,3,0,1),(3,2,1,0)],
+                    [(0,1,2,3),(1,0,3,2),(2,3,1,0),(3,2,0,1)],
+                    [(0,1,2,3),(1,3,0,2),(2,0,3,1),(3,2,1,0)]]
+        rand_perms=all_rand_perms[np.random.randint(4)]
         
         self.batch_actions=len(rand_perms)*self.batch_actions
         self.batch_reward=len(rand_perms)*self.batch_reward
@@ -431,14 +462,14 @@ if __name__ == "__main__":
         
 
     train = run_training(EPOCHS=args.epochs,CLIP_VAL=args.clip_val,BATCH_SIZE=args.batch_size,DEBUG=args.debug,ENTROPY_BETA=args.entropy_beta,
-                         LR=args.learning_rate,TOTAL_EPISODES=args.episodes,SAVE_EVERY=args.save_every,
+                         C_LR=args.c_lr,A_LR=args.a_lr, TOTAL_EPISODES=args.episodes,SAVE_EVERY=args.save_every,
                          USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,NUM_PERMS=args.num_perms,ACT_TYPE=args.act_type,START_ITER=args.start_iter)
 
     actor_loss = []
     critic_loss= []
     prob_mass = []
     bid_metric = []
-
+    bid_suits = np.zeros(4)
 
     if args.plot:
         bfig = plt.figure()
@@ -459,10 +490,20 @@ if __name__ == "__main__":
         critic_loss = critic_loss+[np.mean(np.asarray(c_hist.history['loss']))]
         prob_mass = prob_mass + [train.avg_mass]
         bid_metric =  bid_metric + [train.bid_metric]
+        bid_suits = bid_suits+np.asarray(train.bid_suits)
+        bid_averages = np.copy(bid_suits)/((i+1)*args.episodes)
+        bid_averages_last = np.asarray(train.bid_suits)/args.episodes
         print("Average mass at iteration",i," = ",train.avg_mass)
         print("Average zero probability moves at iteration",i," = ",train.avg_zerop)
         print("Bid metric at iteration",i," = ",train.bid_metric)
-        
+        print("Clubs:",bid_averages[0],"Diamonds:",bid_averages[1],"Hearts:",bid_averages[2],"Spades:",bid_averages[3])
+        print("Clubs:",bid_averages_last[0],"Diamonds:",bid_averages_last[1],"Hearts:",bid_averages_last[2],"Spades:",bid_averages_last[3])
+        # Insert learning rate adjustments here using:
+        # new_lr = lr_funct(old_lr, i) 
+        # K.set_value(train.model_actor.optimizer.lr, new_lr)
+        # K.set_value(train.model_critic.optimizer.lr, new_lr)
+        # show it with ....
+        # print("Setting LR for actor network to",K.get_value(train.model_actor.optimizer.lr))
         
         if args.plot:
             plt.cla()
