@@ -10,12 +10,12 @@ from random import shuffle
 from bisect import bisect_left,bisect_right
 
 
-char_suits = ['C','D','H','S']
+char_suits = ['\u2663','\u2666','\u2665','\u2660']
 
-ppCards = ["2C","3C","4C","5C","6C","7C","8C","9C","TC","JC","QC","KC","AC",
-           "2D","3D","4D","5D","6D","7D","8D","9D","TD","JD","QD","KD","AD",
-           "2H","3H","4H","5H","6H","7H","8H","9H","TH","JH","QH","KH","AH",
-           "2S","3S","4S","5S","6S","7S","8S","9S","TS","JS","QS","KS","AS"]
+ppCards = ["2\u2663","3\u2663","4\u2663","5\u2663","6\u2663","7\u2663","8\u2663","9\u2663","T\u2663","J\u2663","Q\u2663","K\u2663","A\u2663",
+           "2\u2666","3\u2666","4\u2666","5\u2666","6\u2666","7\u2666","8\u2666","9\u2666","T\u2666","J\u2666","Q\u2666","K\u2666","A\u2666",
+           "2\u2665","3\u2665","4\u2665","5\u2665","6\u2665","7\u2665","8\u2665","9\u2665","T\u2665","J\u2665","Q\u2665","K\u2665","A\u2665",
+           "2\u2660","3\u2660","4\u2660","5\u2660","6\u2660","7\u2660","8\u2660","9\u2660","T\u2660","J\u2660","Q\u2660","K\u2660","A\u2660"]
 
 action_map=[1,3,4,5,6,7,8,9,1,2,3,4]+list(range(1,53))
 
@@ -153,8 +153,9 @@ def evalTrick(trick,scoop_suit):
     """ Takes in a trick in the order played and returns the player that 
         won the trick based in the suit led and the scoop suit 
     """
-    top_card, top_player = trick[0],0
-    for i in range(1,4):
+    # lead player is player 1 - matters when determining winner for next round....
+    top_card, top_player = trick[1],1
+    for i in [0,2,3]:
         if evalCards(top_card,trick[i],scoop_suit) == 1:
             top_card,top_player = trick[i],i
     return top_player
@@ -373,3 +374,17 @@ def print_tricks(trick_info):
         print("Player:",trick[0],"trick:",trk_str)
 
         
+def get_cards(state):
+    hand=""
+    cards=bincards2int(state[(36+4*52):(36+5*52)])
+    for c in cards:
+        hand+=ppCards[c]+" "
+    return hand
+
+def get_action(action):
+    if action < 8:
+        return action_map[action]
+    elif action < 12:
+        return char_suits[action_map[action]-1]
+    else:
+        return ppCards[action_map[action]-1]

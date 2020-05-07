@@ -62,7 +62,10 @@ parser.add_argument('-activation', action='store',
                     default="tanh",
                     dest='act_type',
                     help='Default is tanh, use \'leaky\' for Leay ReLU activations.')
-
+parser.add_argument('-show', action='store_true',
+                    default=False,
+                    dest='show_hands',
+                    help='Pretty print hands for analysis.')
 
 
 if __name__ == "__main__":
@@ -78,7 +81,7 @@ if __name__ == "__main__":
     print("Allow random players to select random suits:",args.random_suit1,args.random_suit2)   
     sim=c5_simulation.run_simulations(policy_def={0:args.policy1,1:args.policy2},allow_random_bidding=[args.random_bid1,args.random_bid2],
                         allow_random_suit=[args.random_suit1,args.random_suit2],DEBUG=args.debug,TOTAL_GAMES=args.total_games,
-                        USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,ACT_TYPE=args.act_type)
+                                      USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,ACT_TYPE=args.act_type,SHOWHANDS=args.show_hands)
     sim.set_policies()
     stats_dict = sim.play_games()
 

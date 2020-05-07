@@ -125,6 +125,7 @@ class run_training():
         self.lmbda = LMBDA
         self.actor_learning_rate = A_LR
         self.critic_learning_rate = C_LR
+        self.init_learning_rate=A_LR
         self.min_lr = 0.00001
         self.DEBUG = DEBUG 
         self.BATCH_SIZE=BATCH_SIZE
@@ -165,7 +166,8 @@ class run_training():
 
         self.start_iter=START_ITER
 
-
+        self.bid_incentive = 1.0/18.0
+        
         print("Starting training from iteration",self.start_iter)
         if self.start_iter == 0:
             self.save_models('init')
@@ -186,11 +188,10 @@ class run_training():
         self.policy.save_weights('models/policy_{}.hdf5'.format(name))
 
 
-    def step_decay(self,curriter):
+    def step_decay(self,curriter,curriter_drop):
         drop = 0.5
-        curriter_drop = 10.0
-        lrate = self.critic_learning_rate * np.power(drop,np.floor((1+curriter)/curriter_drop))
-        return min(lrate,self.min_lr)
+        lrate = self.init_learning_rate * np.power(drop,np.floor((1+curriter)/curriter_drop))
+        return max(lrate,self.min_lr)
 
     def exp_decay(self,curriter,k):
         lrate = self.critic_learning_rate * np.exp(-k*curriter)
@@ -291,7 +292,9 @@ class run_training():
                     eps_reward.append(trajectories[i][j+1][5])
                     tmp_value.append(float(trajectories[i][j][4]))
                     tmp_reward.append(trajectories[i][j+1][5])
-                player_returns,player_advantages= c5ppo.get_advantages(tmp_value,tmp_reward,self.gamma,self.lmbda)
+                if ((c5env.bid_max_cards+c5env.bid_max_value) == 2) and (c5env.bidder==i):
+                    tmp_reward[2]=self.bid_incentive
+                player_returns,player_advantages=c5ppo.get_advantages(tmp_value,tmp_reward,self.gamma,self.lmbda)
                 eps_returns = eps_returns+player_returns
                 eps_advantages = eps_advantages+player_advantages
 
@@ -481,6 +484,12 @@ if __name__ == "__main__":
         
     
     for i in range(args.start_iter,args.iterations):
+        if i < 1000:
+            train.bid_incentive = 1.0
+        elif i < 5000:
+            train.bid_incentive = 1.0/9.0
+        else:
+            train.bid_incentive = 1.0/18.0
         train.generate_batch()
         a_hist,c_hist  = train.compute_grads(i)
         print("\na_hist dict:",a_hist.history)
@@ -498,13 +507,18 @@ if __name__ == "__main__":
         print("Bid metric at iteration",i," = ",train.bid_metric)
         print("Clubs:",bid_averages[0],"Diamonds:",bid_averages[1],"Hearts:",bid_averages[2],"Spades:",bid_averages[3])
         print("Clubs:",bid_averages_last[0],"Diamonds:",bid_averages_last[1],"Hearts:",bid_averages_last[2],"Spades:",bid_averages_last[3])
-        # Insert learning rate adjustments here using:
-        # new_lr = lr_funct(old_lr, i) 
-        # K.set_value(train.model_actor.optimizer.lr, new_lr)
-        # K.set_value(train.model_critic.optimizer.lr, new_lr)
-        # show it with ....
-        # print("Setting LR for actor network to",K.get_value(train.model_actor.optimizer.lr))
-        
+        # Insert learning rate adjustments here:
+        #new_lr = train.step_decay(i,250.0)
+        #if new_lr < train.actor_learning_rate:
+        #    K.set_value(train.model_actor.optimizer.lr, new_lr)
+        #    K.set_value(train.model_critic.optimizer.lr, new_lr)
+        #    print("Setting LR for actor network from:",train.actor_learning_rate," to:",K.get_value(train.model_actor.optimizer.lr))
+        #    print("Setting LR for critic network from:",train.critic_learning_rate," to:",K.get_value(train.model_critic.optimizer.lr))
+        #    train.actor_learning_rate = new_lr
+        #    train.critic_learning_rate = new_lr
+        #else:
+        #    print("Current learning rate:",train.actor_learning_rate)
+            
         if args.plot:
             plt.cla()
             x_axis=range(args.start_iter,i+1)

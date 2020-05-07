@@ -86,8 +86,8 @@ if __name__ == "__main__":
     for i in range(args.start_iters,args.stop_iters+1,args.steps):
         current_policy = 'models/policy_{}.hdf5'.format(i)
         print("Testing policy ",i," vs ",args.policy1)
-        sim=c5_simulation.run_simulations(policy_def={0:args.policy1,1:current_policy},allow_random_bidding=args.random_bid,
-                                          allow_random_suit=args.random_suit,DEBUG=args.debug,TOTAL_GAMES=args.total_games,
+        sim=c5_simulation.run_simulations(policy_def={0:args.policy1,1:current_policy},allow_random_bidding=[args.random_bid,args.random_bid],
+                                          allow_random_suit=[args.random_suit,args.random_suit],DEBUG=args.debug,TOTAL_GAMES=args.total_games,
                                           USE_INT_STATES=args.intstate,STATE_DIMS=args.state_dims,ACT_TYPE=args.act_type)
         sim.set_policies()
         all_stats[i] = sim.play_games()
@@ -169,10 +169,9 @@ if __name__ == "__main__":
     bax4.set_ylabel('Average Rewards Per No Bid')
     bax4.set_xlabel('Iterations')
   
-    
     plt.show()
-
-
+    plt.savefig('models/{}_biddingdata.png'.format(policy_title))
+    
     #Now plot the game data 
     
     gfig =  plt.figure()
@@ -195,7 +194,5 @@ if __name__ == "__main__":
     gax2.set_xlabel('Iterations')
 
 
-    
     plt.show()
-    
-    
+    plt.savefig('models/{}_gamedata.png'.format(policy_title))

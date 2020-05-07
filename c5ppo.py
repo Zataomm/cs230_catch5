@@ -3,7 +3,7 @@ import logging
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Add, LeakyReLU
 from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam,SGD
 from tensorflow.keras import initializers
 from tensorflow.keras import backend as K
 
@@ -83,9 +83,13 @@ def build_actor_network(input_dims,output_dims,learning_rate,clipping_val,entrop
 
     
     pred_probs = Dense(output_dims, activation='softmax', name='actor_predictions')(dense3)
+
+
+    a_opt = Adam(lr=learning_rate,clipvalue=0.5)
+    #a_opt = SGD(lr=learning_rate)
     
     actor = Model(inputs=[state_input,oldpolicy_probs,advantages],outputs=[pred_probs])
-    actor.compile(optimizer=Adam(lr=learning_rate), loss=[ppo_loss(oldpolicy_probs=oldpolicy_probs,advantages=advantages,
+    actor.compile(optimizer=a_opt, loss=[ppo_loss(oldpolicy_probs=oldpolicy_probs,advantages=advantages,
                                                                    clipping_val=clipping_val,entropy_beta=entropy_beta)])
     actor.summary()
     
@@ -117,9 +121,11 @@ def build_critic_network(input_dims,learning_rate,act_type):
     
     pred_value = Dense(1, activation='tanh',name='critic_values')(dense3)
 
+    c_opt = Adam(lr=learning_rate,clipvalue=0.5)
+    #c_opt = SGD(lr=learning_rate)
     
     critic = Model(inputs=[state_input], outputs=[pred_value])
-    critic.compile(optimizer=Adam(lr=learning_rate), loss='mse')
+    critic.compile(optimizer=c_opt, loss='mse')
     critic.summary()
     
     return critic

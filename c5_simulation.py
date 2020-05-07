@@ -67,10 +67,11 @@ class run_simulations():
         to be able to tell if networks are improving.  
     """
     def __init__(self,DEBUG=True,TOTAL_GAMES=10,policy_def={0:"random",1:"random"},allow_random_bidding=[True,True],
-                 allow_random_suit=[True,True],STATE_DIMS=504,USE_INT_STATES=False,ACT_TYPE="tanh",PICK_MAX=True):
+                 allow_random_suit=[True,True],STATE_DIMS=504,USE_INT_STATES=False,ACT_TYPE="tanh",PICK_MAX=True,SHOWHANDS=False):
 
         # parameters
         self.DEBUG = DEBUG
+        self.SHOWHANDS = SHOWHANDS
         self.TOTAL_GAMES=TOTAL_GAMES
         self.policy_def=policy_def
         self.player_policy=[None,None]
@@ -124,10 +125,11 @@ class run_simulations():
         while(game_num < self.TOTAL_GAMES):
             if self.DEBUG:
                 print("Dealer is player ",self.env.dealer)
-            #play a hand 
+            #play a hand
+            hand = []
             done = False
-
             while not done:
+                current_step=[self.env.current_player]
                 observation = self.env.states[self.env.current_player]
                 int_obs =  np.copy(self.env.int_states[self.env.current_player])
                 if not self.USE_INT_STATES:
@@ -137,12 +139,15 @@ class run_simulations():
 
                 if self.DEBUG:
                     c5utils.print_binstate(observation,self.env.current_player)
-
+                    
+                if self.SHOWHANDS:
+                    current_step.append(c5utils.get_cards(observation))
+                    
                 legal_actions=self.env.legal_actions()
 
                 if self.DEBUG:
                     c5utils.print_actions(legal_actions)
-
+                    
                 # now get the next move - and update states depending on who is playing
                 action=self.player_policy[self.env.current_player%2].play(state_input,int_obs,legal_actions)
 
@@ -151,13 +156,36 @@ class run_simulations():
                     c5utils.print_action(action)
                     print("Step number = ",self.env.num_plays)
 
+                if self.SHOWHANDS:
+                    current_step.append(c5utils.get_action(action))
+                    hand.append(current_step)
+
                 #take a step and return next state 
                 observation,reward,done,_ = self.env.step(self.env.action_map[action])
 
+
+            if self.SHOWHANDS:
+                print("======================================================")
+                print("Player:\t\tCards In Hand\t\t Action")
+                print("BIDS =================================================")
+                for i in range(4):
+                    print(hand[i][0],"\t",hand[i][1],"\t\t",hand[i][2])
+                print("\nBID SUIT ===========================================")
+                print(hand[4][0],"\t",hand[4][1],"\t\t",hand[4][2])
+                for i in range(6):
+                    print("\nROUND {} =======================================".format(i+1))
+                    for j in range(4):
+                        print(hand[5+i*4+j][0],"\t",hand[5+i*4+j][1],"\t\t",hand[5+i*4+j][2])
+                print("\n=================== TRICKS =========================")
+                c5utils.print_tricks(self.env.trick_info)
+                for i in range(2):
+                    print("Rewards for team ",i,":",self.env.rewards[i])
+            
             self.number_of_bids_won[self.env.bidder]+=1
             self.average_winning_bid[self.env.bidder].set_avg(self.env.best_bid)
             self.average_rewards_per_winning_bid[self.env.bidder].set_avg(self.env.rewards[self.env.bidder])
             self.average_rewards_per_non_bid[(self.env.bidder+1)%4].set_avg(self.env.rewards[(self.env.bidder+1)%4])
+            self.average_rewards_per_non_bid[(self.env.bidder+2)%4].set_avg(self.env.rewards[(self.env.bidder+2)%4])
             self.average_rewards_per_non_bid[(self.env.bidder+3)%4].set_avg(self.env.rewards[(self.env.bidder+3)%4])
             self.average_best_bid_suit[self.env.bidder].set_avg(self.env.bid_max_cards)
             self.average_best_bid_val[self.env.bidder].set_avg(self.env.bid_max_value)
